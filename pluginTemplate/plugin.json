@@ -1,0 +1,9 @@
+{
+  "pluginName": "PlugIn Template",
+  "author": "b1u3n4z9u1 + ChatGPT",
+  "version": "0.1.0",
+  "description": "Minimal starter for TeddyCloud plugins with theme compatibility and version display. The index.html contains a sample section as a placeholder. Extend the logic in script.js and adjust the markup/style as needed.",
+  "pluginHomepage": "Homepage of the plugin (optionally)",
+  "teddyCloudSection": "one of: home|tonies|tonieboxes|settings|community (optionally)",
+  "icon": "name of an icon fromt Ant Design icon component here https://ant.design/components/icon (optionally)"
+  }
