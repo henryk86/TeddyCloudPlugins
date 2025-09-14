@@ -1,0 +1,8 @@
+{
+    "pluginName": "TeddyCloud GitHub Repositores",
+    "author": "Henryk",
+    "version": "1.0.0",
+    "description": "Library of all known TeddyCloud related GitHub Repositories collected by github API (60 calls / hour)",
+    "teddyCloudSection": "community",
+    "icon": "GithubOutlined"
+}
