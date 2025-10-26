@@ -18,7 +18,7 @@ Share reusable functionality with the community.
 
 For creating your own TeddyCloud Plugin follow the guide within TeddyCloud and use the PluginTemplate!
 
-A copy of that template is also added to this repository in folter pluginTemplate.
+A copy of that template is also added to this repository in folder pluginTemplate.
 
 ## Contributing
 
