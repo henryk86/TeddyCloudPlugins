@@ -290,7 +290,7 @@
 
       for (const file of files) {
         const fileName = file.name;
-        const filePath = basePath + "/" + fileName;
+        const filePath = file.path;
         
         if (file.isDirectory) {
           // Recursively download subdirectory
@@ -304,12 +304,22 @@
           try {
             const specialMatch = fileIndexUrl.match(/special=([^&]*)/);
             const special = specialMatch ? specialMatch[1] : "content";
-            const fileUrl = `/api/getFile/${special}/${filePath}`;
+            
+            // Remove special prefix from path if present (fileIndex returns "library/file.taf" for special=library)
+            let relativePath = filePath;
+            if (relativePath.startsWith(special + '/')) {
+              relativePath = relativePath.substring(special.length + 1);
+            }
+            if (relativePath.startsWith('/')) {
+              relativePath = relativePath.substring(1);
+            }
+            
+            const fileUrl = `/api/getFile/${special}/${relativePath}`;
             const fileBlob = await apiBlob(fileUrl);
             zipFolder.file(fileName, fileBlob);
-            log(`  ${filePath} (${formatBytes(fileBlob.size)})`);
+            log(`  ${fileName} (${formatBytes(fileBlob.size)})`);
           } catch (e) {
-            log(`Fehler beim Download: ${filePath}`, "warn");
+            log(`Fehler beim Download: ${fileName}`, "warn");
           }
         }
       }
@@ -366,40 +376,64 @@
       // ========== GLOBAL DATA ==========
       const globalFolder = zip.folder("global");
 
-      // Certificates
+      // Certificates - only ca.der is available via API, document manual backup for others
       if (options.certs) {
         log("Sichere Zertifikate...");
         const certsFolder = globalFolder.folder("certs");
         
-        // Download all certificates with original names
+        let certCount = 0;
+        
+        // Try to download ca.der (the only cert available via API)
         try {
           const caCert = await apiBlob("/api/getFile/ca.der");
           certsFolder.file("ca.der", caCert);
-          updateProgress("Zertifikate: ca.der");
+          certCount++;
+          log("ca.der gesichert");
         } catch (e) {
           log("ca.der nicht verfügbar", "warn");
-          updateProgress("Zertifikate: ca.der (nicht verfügbar)");
         }
+        
+        // Add README with manual backup instructions for other certificates
+        const certReadme = `TeddyCloud Zertifikate Backup
+========================================
 
-        try {
-          const clientCert = await apiBlob("/api/getFile/client.der");
-          certsFolder.file("client.der", clientCert);
-          updateProgress("Zertifikate: client.der");
-        } catch (e) {
-          log("client.der nicht verfügbar (normal wenn noch nicht erstellt)", "warn");
-          updateProgress("Zertifikate: client.der (nicht verfügbar)");
-        }
+Dieses Backup enthält nur die über die API verfügbaren Zertifikate.
 
-        try {
-          const privateCert = await apiBlob("/api/getFile/private.der");
-          certsFolder.file("private.der", privateCert);
-          updateProgress("Zertifikate: private.der");
-        } catch (e) {
-          log("private.der nicht verfügbar (normal wenn noch nicht erstellt)", "warn");
-          updateProgress("Zertifikate: private.der (nicht verfügbar)");
-        }
+WICHTIG: Die folgenden Zertifikate müssen MANUELL gesichert werden:
 
-        // Download config directory recursively
+Server-Zertifikate (Pfad auf Server: /teddycloud/certs/server/):
+- ca-key.pem
+- ca-root.pem  
+- ca.der
+- teddy-cert.pem
+- teddy-key.pem
+
+Client-Zertifikate (Pfad auf Server: /teddycloud/certs/client/):
+- ca.der
+- client.der
+- private.der
+- 48ca43410318
+
+Diese Dateien sind WICHTIG für:
+- Wiederherstellung des TeddyCloud-Servers
+- Verbindung mit Tonieboxen
+- Custom Tonie Content
+
+Sicherung via SFTP/SSH:
+  sftp root@192.168.0.102
+  get -r /teddycloud/certs/
+
+Backup-Datum: ${new Date().toISOString()}
+`;
+        
+        certsFolder.file("README_CERTS_MANUAL_BACKUP.txt", certReadme);
+        
+        updateProgress(`Zertifikate: ${certCount} Datei(en) gesichert (Hinweis: Weitere Zertifikate manuell sichern!)`);
+        log("⚠️ Wichtig: Server- und Client-Zertifikate müssen manuell per SFTP gesichert werden!", "warn");
+      }
+
+      // Download config directory recursively
+      if (options.config) {
         log("Sichere Config-Verzeichnis...");
         try {
           await downloadDirectoryRecursive("/api/fileIndex?special=config&path=/", "config", globalFolder.folder("config"));
@@ -408,8 +442,15 @@
           log("Config-Verzeichnis nicht verfügbar", "warn");
           updateProgress("Config-Verzeichnis (nicht verfügbar)");
         }
+      }
 
-        // Download firmware directory
+      // Firmware directory
+      if (options.firmware) {
+          updateProgress("Config-Verzeichnis (nicht verfügbar)");
+        }
+
+      // Firmware directory
+      if (options.firmware) {
         log("Sichere Firmware-Verzeichnis...");
         try {
           await downloadDirectoryRecursive("/api/fileIndex?special=firmware&path=/", "firmware", globalFolder.folder("firmware"));
@@ -509,15 +550,19 @@
       if (options.content || options.audio) {
         log("Sichere Content-Daten...");
 
-        // Download library directory
+        // Save library metadata (TAF files are virtual catalog, actual files are in content/)
         if (options.content) {
-          log("Sichere Library-Verzeichnis...");
+          log("Sichere Library-Metadaten...");
           try {
-            await downloadDirectoryRecursive("/api/fileIndex?special=library&path=/", "library", zip.folder("library"));
-            updateProgress("Library-Verzeichnis");
+            const libraryIndex = await apiJson("/api/fileIndex?special=library");
+            const libraryFolder = zip.folder("library");
+            libraryFolder.file("_metadata.json", JSON.stringify(libraryIndex, null, 2));
+            const fileCount = libraryIndex.files?.length || 0;
+            log(`Library-Metadaten gesichert (${fileCount} Einträge)`);
+            updateProgress("Library-Metadaten");
           } catch (e) {
-            log("Library-Verzeichnis nicht verfügbar", "warn");
-            updateProgress("Library-Verzeichnis (nicht verfügbar)");
+            log(`Fehler beim Sichern der Library-Metadaten: ${e.message}`, "warn");
+            updateProgress("Library-Metadaten (nicht verfügbar)");
           }
 
           // Download cache directory
