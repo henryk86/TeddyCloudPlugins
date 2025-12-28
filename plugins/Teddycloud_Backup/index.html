@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>TeddyCloud Backup</title>
+
+    <style>
+      :root {
+        --tc-bg: #fff;
+        --tc-fg: #1f2328;
+        --tc-muted: #667085;
+        --tc-border: #d0d7de;
+        --tc-primary: #1677ff;
+        --tc-bg-soft: #f6f8fa;
+        --tc-radius: 10px;
+        --tc-gap: 8px;
+        --tc-gap-md: 16px;
+        --tc-success: #10b981;
+        --tc-warning: #f59e0b;
+        --tc-error: #ef4444;
+      }
+      :root[data-tc-theme="dark"] {
+        --tc-bg: #0f1419;
+        --tc-fg: #e6e7ea;
+        --tc-muted: #9aa0a6;
+        --tc-border: #2b3138;
+        --tc-primary: #3b82f6;
+        --tc-bg-soft: #141b22;
+      }
+      html,
+      body {
+        background: var(--tc-bg);
+        color: var(--tc-fg);
+        font: inherit;
+        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+          Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+      }
+      body {
+        margin: 16px;
+        max-width: 1200px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 8px 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .w-100 {
+        width: 100%;
+      }
+      .muted {
+        color: var(--tc-muted);
+      }
+      .ant-card {
+        background: var(--tc-bg);
+        border: 1px solid var(--tc-border);
+        border-radius: var(--tc-radius);
+        padding: var(--tc-gap-md);
+        margin-bottom: var(--tc-gap-md);
+      }
+      .ant-card h3 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ant-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid var(--tc-border);
+        border-radius: 6px;
+        background: var(--tc-bg-soft);
+        font-size: 12px;
+      }
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+        background: var(--tc-bg-soft);
+        border: 1px solid var(--tc-border);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      select {
+        min-width: 200px;
+      }
+      select[multiple] {
+        min-height: 120px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 200px;
+        resize: vertical;
+        box-sizing: border-box;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .ant-btn {
+        border: 1px solid var(--tc-border);
+        border-radius: 8px;
+        padding: 8px 16px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        transition: all 0.2s;
+      }
+      .ant-btn:hover:not([disabled]) {
+        border-color: var(--tc-primary);
+        color: var(--tc-primary);
+      }
+      .ant-btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .ant-btn-primary {
+        background: var(--tc-primary);
+        color: #fff;
+        border-color: transparent;
+      }
+      .ant-btn-primary:hover:not([disabled]) {
+        background: #1058d0;
+        color: #fff;
+      }
+      .ant-btn-danger {
+        background: var(--tc-error);
+        color: #fff;
+        border-color: transparent;
+      }
+      .checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .checkbox-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+      .checkbox-item label {
+        cursor: pointer;
+      }
+      .progress-container {
+        margin-top: 16px;
+        display: none;
+      }
+      .progress-container.active {
+        display: block;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: var(--tc-bg-soft);
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+      }
+      .progress-fill {
+        height: 100%;
+        background: var(--tc-primary);
+        transition: width 0.3s;
+        width: 0%;
+      }
+      .progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .size-info {
+        margin-top: 12px;
+        padding: 12px;
+        background: var(--tc-bg-soft);
+        border-radius: 8px;
+        display: none;
+      }
+      .size-info.active {
+        display: block;
+      }
+      .size-info.warning {
+        border-left: 4px solid var(--tc-warning);
+      }
+      .size-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--tc-primary);
+      }
+      .ok { color: var(--tc-success); }
+      .warn { color: var(--tc-warning); }
+      .err { color: var(--tc-error); }
+      :focus-visible {
+        outline: 2px solid var(--tc-primary);
+        outline-offset: 2px;
+      }
+      .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+      .file-input-wrapper input[type="file"] {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      .restore-mapping {
+        margin-top: 12px;
+        display: none;
+      }
+      .restore-mapping.active {
+        display: block;
+      }
+      .mapping-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--tc-border);
+      }
+      .mapping-item:last-child {
+        border-bottom: none;
+      }
+      .mapping-arrow {
+        color: var(--tc-muted);
+      }
+      .status-log {
+        margin-top: 16px;
+      }
+      .icon {
+        width: 20px;
+        height: 20px;
+      }
+    </style>
+
+    <!-- THEME ADAPTER -->
+    <script>
+      (function () {
+        const root = document.documentElement;
+        const setVars = (bg, fg, fontFamily, fontSize) => {
+          if (!bg || !fg) return;
+          root.style.setProperty("--tc-bg", String(bg).trim());
+          root.style.setProperty("--tc-fg", String(fg).trim());
+          root.style.setProperty(
+            "--tc-border",
+            "color-mix(in srgb, " + fg + " 20%, transparent)"
+          );
+          root.style.setProperty(
+            "--tc-bg-soft",
+            "color-mix(in srgb, " + bg + " 92%, " + fg + " 8%)"
+          );
+          if (!root.style.getPropertyValue("--tc-primary"))
+            root.style.setProperty("--tc-primary", "#1677ff");
+          if (fontFamily) {
+            document.documentElement.style.fontFamily = fontFamily;
+            document.body.style.fontFamily = fontFamily;
+          }
+          if (fontSize) {
+            document.documentElement.style.fontSize = fontSize;
+            document.body.style.fontSize = fontSize;
+          }
+        };
+        const rgbToL = (rgb) => {
+          const m = rgb && rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+          if (!m) return null;
+          const [r, g, b] = [+m[1], +m[2], +m[3]];
+          return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        };
+        const applyThemeFlag = (bg) => {
+          const L = rgbToL(bg);
+          if (L != null)
+            root.setAttribute("data-tc-theme", L < 0.5 ? "dark" : "light");
+        };
+        const applyExplicit = (t) => {
+          if (t === "dark" || t === "light") {
+            root.setAttribute("data-tc-theme", t);
+            return true;
+          }
+          return false;
+        };
+        const urlTheme = (
+          new URLSearchParams(location.search).get("tcTheme") || ""
+        ).toLowerCase();
+        const sysQuery =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)");
+        const followSystem = () =>
+          applyExplicit(sysQuery.matches ? "dark" : "light");
+        const readFromParent = () => {
+          try {
+            const pdoc = window.parent && window.parent.document;
+            if (!pdoc) return false;
+            const hostEl =
+              pdoc.querySelector(".ant-layout-content") ||
+              pdoc.querySelector("main.ant-layout-content") ||
+              pdoc.body;
+            if (!hostEl) return false;
+            const cs = window.parent.getComputedStyle(hostEl);
+            const bg =
+              cs.backgroundColor || cs.background || "rgb(255,255,255)";
+            const fg = cs.color || "rgb(31,35,40)";
+            const font =
+              cs.fontFamily ||
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const fontSize = cs.fontSize || "14px";
+            setVars(bg, fg, font, fontSize);
+            if (!root.hasAttribute("data-tc-theme")) applyThemeFlag(bg);
+            return true;
+          } catch (e) {
+            return false;
+          }
+        };
+        if (urlTheme && urlTheme !== "auto") applyExplicit(urlTheme);
+        readFromParent();
+        if (!root.hasAttribute("data-tc-theme") || urlTheme === "auto") {
+          if (sysQuery) {
+            followSystem();
+            try {
+              sysQuery.addEventListener("change", followSystem);
+            } catch (_) {
+              sysQuery.addListener && sysQuery.addListener(followSystem);
+            }
+          }
+        }
+        window.addEventListener(
+          "message",
+          (ev) => {
+            const d = ev && ev.data;
+            if (
+              d &&
+              d.type === "tc-theme" &&
+              (d.theme === "dark" || d.theme === "light")
+            )
+              applyExplicit(d.theme);
+            if (d && d.type === "tc-theme-vars" && d.bg && d.fg) {
+              setVars(d.bg, d.fg);
+              applyThemeFlag(d.bg);
+            }
+          },
+          false
+        );
+        (function () {
+          try {
+            const pdoc = window.parent && window.parent.document;
+            if (!pdoc) return;
+            const hostEl =
+              pdoc.querySelector(".ant-layout-content") ||
+              pdoc.querySelector("main.ant-layout-content") ||
+              pdoc.body;
+            const update = () => {
+              readFromParent();
+            };
+            const mo = new MutationObserver(update);
+            mo.observe(pdoc.documentElement, {
+              attributes: true,
+              attributeFilter: ["class", "data-theme"],
+            });
+            mo.observe(pdoc.body, {
+              attributes: true,
+              attributeFilter: ["class", "data-theme", "style"],
+            });
+            if (hostEl && hostEl !== pdoc.body)
+              mo.observe(hostEl, {
+                attributes: true,
+                attributeFilter: ["class", "data-theme", "style"],
+              });
+            window.parent.addEventListener &&
+              window.parent.addEventListener("transitionend", update, true);
+            window.parent.addEventListener &&
+              window.parent.addEventListener("resize", update);
+            let i = 0;
+            const t = setInterval(() => {
+              update();
+              if (++i > 5) clearInterval(t);
+            }, 2000);
+          } catch (_) {}
+        })();
+      })();
+    </script>  
+  </head>
+
+  <body class="ant-typography">
+    <header>
+      <h1 class="ant-typography">
+        💾 TeddyCloud Backup <span id="scriptVersion" class="muted"></span>
+      </h1>
+      <p class="muted">Vollständiges Backup aller TeddyCloud-Daten mit Unterstützung für pro-Toniebox-Overlays</p>
+    </header>
+
+    <div class="grid">
+      <!-- BACKUP SECTION -->
+      <section class="ant-card" aria-labelledby="backup-heading">
+        <h3 id="backup-heading" class="ant-typography">📦 Backup erstellen</h3>
+        
+        <div class="row">
+          <label for="boxSelect"><strong>Tonieboxen:</strong></label>
+        </div>
+        <div class="row">
+          <select id="boxSelect" multiple>
+            <option value="__loading__" disabled>Lade Tonieboxen...</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-top: 16px;">
+          <strong>Backup-Komponenten:</strong>
+        </div>
+        <div class="checkbox-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="chkCerts" checked />
+            <label for="chkCerts">🔐 Zertifikate (CA, Client, Private Key)</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="chkSettings" checked />
+            <label for="chkSettings">⚙️ Einstellungen (alle Konfigurationen)</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="chkContent" checked />
+            <label for="chkContent">📁 Content-Metadaten (Tags, Zuweisungen)</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="chkAudio" checked />
+            <label for="chkAudio">🎵 Audio-Dateien (TAF-Dateien)</label>
+          </div>
+          <div class="checkbox-item">
+            <input type="checkbox" id="chkToniesDb" checked />
+            <label for="chkToniesDb">📚 Tonies-Datenbank (tonies.json, custom)</label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 16px; gap: 12px;">
+          <button id="btnEstimate" class="ant-btn">
+            📊 Größe berechnen
+          </button>
+          <button id="btnBackup" class="ant-btn ant-btn-primary" disabled>
+            💾 Backup starten
+          </button>
+        </div>
+
+        <div id="sizeInfo" class="size-info">
+          <div>Geschätzte Backup-Größe:</div>
+          <div class="size-value" id="sizeValue">0 MB</div>
+          <div id="sizeWarning" class="warn" style="display: none; margin-top: 8px;">
+            ⚠️ Großes Backup! Der Download kann einige Zeit dauern.
+          </div>
+        </div>
+
+        <div id="backupProgress" class="progress-container">
+          <div class="progress-bar">
+            <div id="backupProgressFill" class="progress-fill"></div>
+            <div id="backupProgressText" class="progress-text">0%</div>
+          </div>
+          <div id="backupStatus" class="muted" style="margin-top: 8px;"></div>
+        </div>
+      </section>
+
+      <!-- RESTORE SECTION -->
+      <section class="ant-card" aria-labelledby="restore-heading">
+        <h3 id="restore-heading" class="ant-typography">📥 Backup wiederherstellen</h3>
+        
+        <div class="row">
+          <label><strong>Backup-Datei auswählen:</strong></label>
+        </div>
+        <div class="row">
+          <div class="file-input-wrapper">
+            <button class="ant-btn">📂 Datei auswählen...</button>
+            <input type="file" id="restoreFile" accept=".zip" />
+          </div>
+          <span id="selectedFileName" class="muted">Keine Datei ausgewählt</span>
+        </div>
+
+        <div id="restoreInfo" class="size-info" style="display: none;">
+          <div><strong>Backup-Inhalt:</strong></div>
+          <div id="restoreDetails" style="margin-top: 8px;"></div>
+        </div>
+
+        <div id="restoreMapping" class="restore-mapping">
+          <div class="row">
+            <strong>Overlay-Zuweisung:</strong>
+          </div>
+          <div id="mappingContainer"></div>
+        </div>
+
+        <div class="row" style="margin-top: 16px;">
+          <button id="btnRestore" class="ant-btn ant-btn-danger" disabled>
+            ⚠️ Wiederherstellen
+          </button>
+        </div>
+
+        <div id="restoreProgress" class="progress-container">
+          <div class="progress-bar">
+            <div id="restoreProgressFill" class="progress-fill"></div>
+            <div id="restoreProgressText" class="progress-text">0%</div>
+          </div>
+          <div id="restoreStatus" class="muted" style="margin-top: 8px;"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- LOG SECTION -->
+    <section class="ant-card status-log" aria-labelledby="log-heading">
+      <h3 id="log-heading" class="ant-typography">📋 Status-Log</h3>
+      <textarea id="logOutput" readonly placeholder="Hier erscheinen detaillierte Status-Meldungen..."></textarea>
+      <div class="row" style="margin-top: 8px;">
+        <button id="btnClearLog" class="ant-btn">🗑️ Log leeren</button>
+      </div>
+    </section>
+
+    <script src="./jszip.min.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
