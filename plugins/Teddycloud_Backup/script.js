@@ -281,6 +281,44 @@
   }
 
   // ============================================================
+  // DIRECTORY DOWNLOAD HELPER
+  // ============================================================
+  async function downloadDirectoryRecursive(fileIndexUrl, basePath, zipFolder) {
+    try {
+      const data = await apiJson(fileIndexUrl);
+      const files = data.files || [];
+
+      for (const file of files) {
+        const fileName = file.name;
+        const filePath = basePath + "/" + fileName;
+        
+        if (file.isDirectory) {
+          // Recursively download subdirectory
+          const subFolder = zipFolder.folder(fileName);
+          const subPath = fileIndexUrl.includes("?") 
+            ? fileIndexUrl.replace(/path=[^&]*/, `path=/${filePath}`)
+            : `${fileIndexUrl}?path=/${filePath}`;
+          await downloadDirectoryRecursive(subPath, filePath, subFolder);
+        } else {
+          // Download file
+          try {
+            const specialMatch = fileIndexUrl.match(/special=([^&]*)/);
+            const special = specialMatch ? specialMatch[1] : "content";
+            const fileUrl = `/api/getFile/${special}/${filePath}`;
+            const fileBlob = await apiBlob(fileUrl);
+            zipFolder.file(fileName, fileBlob);
+            log(`  ${filePath} (${formatBytes(fileBlob.size)})`);
+          } catch (e) {
+            log(`Fehler beim Download: ${filePath}`, "warn");
+          }
+        }
+      }
+    } catch (e) {
+      log(`Fehler beim Listen von ${basePath}: ${e.message}`, "warn");
+    }
+  }
+
+  // ============================================================
   // BACKUP CREATION
   // ============================================================
   async function createBackup() {
@@ -302,10 +340,10 @@
     let currentStep = 0;
 
     // Calculate total steps
-    if (options.certs) totalSteps += 2;  // ca.der und c2.der
+    if (options.certs) totalSteps += 5;  // ca.der, client.der, private.der, config/, firmware/
     if (options.toniesDb) totalSteps += 4;
     if (options.settings) totalSteps += 1 + selectedBoxes.length;
-    if (options.content) totalSteps += 1;
+    if (options.content) totalSteps += 3;  // content/, library/, cache/
     if (options.audio) totalSteps += 1;
 
     const updateProgress = (status) => {
@@ -331,22 +369,54 @@
       // Certificates
       if (options.certs) {
         log("Sichere Zertifikate...");
+        const certsFolder = globalFolder.folder("certs");
+        
+        // Download all certificates with original names
         try {
           const caCert = await apiBlob("/api/getFile/ca.der");
-          globalFolder.file("certs/ca.der", caCert);
-          updateProgress("Zertifikate: CA");
+          certsFolder.file("ca.der", caCert);
+          updateProgress("Zertifikate: ca.der");
         } catch (e) {
-          log("CA-Zertifikat nicht verfügbar", "warn");
-          updateProgress("Zertifikate: CA (nicht verfügbar)");
+          log("ca.der nicht verfügbar", "warn");
+          updateProgress("Zertifikate: ca.der (nicht verfügbar)");
         }
 
         try {
-          const c2Cert = await apiBlob("/api/getFile/c2.der");
-          globalFolder.file("certs/c2.der", c2Cert);
-          updateProgress("Zertifikate: C2");
+          const clientCert = await apiBlob("/api/getFile/client.der");
+          certsFolder.file("client.der", clientCert);
+          updateProgress("Zertifikate: client.der");
         } catch (e) {
-          log("C2-Zertifikat nicht verfügbar", "warn");
-          updateProgress("Zertifikate: C2 (nicht verfügbar)");
+          log("client.der nicht verfügbar (normal wenn noch nicht erstellt)", "warn");
+          updateProgress("Zertifikate: client.der (nicht verfügbar)");
+        }
+
+        try {
+          const privateCert = await apiBlob("/api/getFile/private.der");
+          certsFolder.file("private.der", privateCert);
+          updateProgress("Zertifikate: private.der");
+        } catch (e) {
+          log("private.der nicht verfügbar (normal wenn noch nicht erstellt)", "warn");
+          updateProgress("Zertifikate: private.der (nicht verfügbar)");
+        }
+
+        // Download config directory recursively
+        log("Sichere Config-Verzeichnis...");
+        try {
+          await downloadDirectoryRecursive("/api/fileIndex?special=config&path=/", "config", globalFolder.folder("config"));
+          updateProgress("Config-Verzeichnis");
+        } catch (e) {
+          log("Config-Verzeichnis nicht verfügbar", "warn");
+          updateProgress("Config-Verzeichnis (nicht verfügbar)");
+        }
+
+        // Download firmware directory
+        log("Sichere Firmware-Verzeichnis...");
+        try {
+          await downloadDirectoryRecursive("/api/fileIndex?special=firmware&path=/", "firmware", globalFolder.folder("firmware"));
+          updateProgress("Firmware-Verzeichnis");
+        } catch (e) {
+          log("Firmware-Verzeichnis nicht verfügbar", "warn");
+          updateProgress("Firmware-Verzeichnis (nicht verfügbar)");
         }
       }
 
@@ -438,6 +508,39 @@
       // ========== CONTENT & AUDIO ==========
       if (options.content || options.audio) {
         log("Sichere Content-Daten...");
+
+        // Download library directory
+        if (options.content) {
+          log("Sichere Library-Verzeichnis...");
+          try {
+            await downloadDirectoryRecursive("/api/fileIndex?special=library&path=/", "library", zip.folder("library"));
+            updateProgress("Library-Verzeichnis");
+          } catch (e) {
+            log("Library-Verzeichnis nicht verfügbar", "warn");
+            updateProgress("Library-Verzeichnis (nicht verfügbar)");
+          }
+
+          // Download cache directory
+          log("Sichere Cache-Verzeichnis...");
+          try {
+            await downloadDirectoryRecursive("/api/fileIndex?special=cache&path=/", "cache", zip.folder("cache"));
+            updateProgress("Cache-Verzeichnis");
+          } catch (e) {
+            log("Cache-Verzeichnis nicht verfügbar", "warn");
+            updateProgress("Cache-Verzeichnis (nicht verfügbar)");
+          }
+
+          // Download custom images
+          log("Sichere Custom-Images...");
+          try {
+            await downloadDirectoryRecursive("/api/fileIndex?special=www&path=/custom_img", "custom_img", zip.folder("custom_img"));
+            updateProgress("Custom-Images");
+          } catch (e) {
+            log("Custom-Images nicht verfügbar", "warn");
+            updateProgress("Custom-Images (nicht verfügbar)");
+          }
+        }
+
         updateProgress("Content-Daten");
 
         try {
