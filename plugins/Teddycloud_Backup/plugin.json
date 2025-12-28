@@ -3,7 +3,7 @@
   "author": "TeddyCloud Community",
   "version": "1.0.0",
   "description": "Vollständiges Backup aller TeddyCloud-Daten inkl. Zertifikate, Einstellungen, Content und Audio-Dateien. Unterstützt pro-Toniebox-Overlays mit Größenschätzung vor Download.",
-  "pluginHomepage": "https://github.com/toniebox-reverse-engineering/teddycloud",
+  "pluginHomepage": "https://github.com/marion909/TeddyCloud_Backup_Plugin",
   "teddyCloudSection": "settings",
   "icon": "save"
 }
