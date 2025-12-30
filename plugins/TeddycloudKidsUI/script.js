@@ -55,7 +55,7 @@
     },
     en: {
       // Splash Screen
-      splash_title: "Hello! What would you like to listen to?",
+      splash_title: "Ready for a new story?",
       splash_button: "Let's go!",
 
       // Box Selection
