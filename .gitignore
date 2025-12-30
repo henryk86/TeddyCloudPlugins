@@ -1,0 +1,17 @@
+# Deployment scripts (contain server-specific info)
+deploy-*.bat
+deploy-*.ps1
+
+# Local data
+data/
+
+# Claude Code / AI assistant config (local only)
+.claude/
+CLAUDE.md
+AGENTS.md
+
+# Beads issue tracker (local only)
+.beads/
+
+# Screenshots and temporary images (root level only)
+/*.png
