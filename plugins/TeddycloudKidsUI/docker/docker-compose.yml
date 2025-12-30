@@ -1,0 +1,28 @@
+services:
+  teddycloud-kids-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: teddycloud-kids-ui:latest
+    container_name: teddycloud-kids-ui
+    ports:
+      - "8080:80"
+    environment:
+      # URL of your TeddyCloud instance (no trailing slash)
+      # Examples:
+      #   - http://192.168.1.100:80
+      #   - http://teddycloud:80 (if in same docker network)
+      #   - http://teddycloud.local
+      - TEDDYCLOUD_URL=${TEDDYCLOUD_URL:-http://localhost:80}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Optional: Connect to existing TeddyCloud network
+# networks:
+#   default:
+#     external: true
+#     name: teddycloud_default
