@@ -239,6 +239,25 @@
       // This returns TAF files that are physically present on the server
       const allAudio = [];
 
+      // Fetch custom tonie metadata for enrichment (has better title info)
+      // Note: We only use this for metadata, NOT for file paths (audio_id != file path)
+      let customMetadataMap = new Map();
+      try {
+        const customRes = await fetch("/api/toniesCustomJson");
+        if (customRes.ok) {
+          const customData = await customRes.json();
+          (Array.isArray(customData) ? customData : []).forEach((item) => {
+            if (item.audio_id && item.audio_id.length > 0) {
+              // Map by audio_id for lookup during library scan
+              customMetadataMap.set(String(item.audio_id[0]), item);
+            }
+          });
+          console.log(`Loaded ${customMetadataMap.size} custom tonie metadata entries`);
+        }
+      } catch (e) {
+        console.error("Error loading custom tonie metadata:", e);
+      }
+
       // Helper to recursively scan library directories
       async function scanLibraryDir(path = "") {
         const url = path
@@ -261,10 +280,27 @@
           // Only include files with valid tonieInfo (linked files)
           if (file.tonieInfo && file.tonieInfo.picture) {
             const fullPath = path ? `${path}/${file.name}` : file.name;
+
+            // Check if we have enriched metadata from custom JSON (by audio_id)
+            const audioId = file.tafHeader && file.tafHeader.audioId;
+            const customMeta = audioId ? customMetadataMap.get(String(audioId)) : null;
+
+            // Build title and series from available metadata
+            let title, series;
+            if (customMeta) {
+              // Custom tonie: use title, and episodes as additional info
+              title = customMeta.title || file.tonieInfo.series || file.name.replace(".taf", "");
+              series = customMeta.episodes || "";
+            } else {
+              // Regular tonie: use episode as title, series as subtitle
+              title = file.tonieInfo.episode || file.tonieInfo.series || file.name.replace(".taf", "");
+              series = file.tonieInfo.series || "";
+            }
+
             results.push({
               source: `lib://${fullPath}`,
-              title: file.tonieInfo.episode || file.tonieInfo.series || file.name.replace(".taf", ""),
-              series: file.tonieInfo.series || "",
+              title: title,
+              series: series,
               pic: file.tonieInfo.picture,
               model: file.tonieInfo.model
             });
@@ -288,27 +324,6 @@
         console.log(`Loaded ${libraryAudio.length} audio files from library`);
       } catch (e) {
         console.error("Error scanning library:", e);
-      }
-
-      // Also include custom tonies (toniesCustomJson) as fallback
-      try {
-        const customRes = await fetch("/api/toniesCustomJson");
-        if (customRes.ok) {
-          const customData = await customRes.json();
-          const customAudio = (Array.isArray(customData) ? customData : [])
-            .filter((item) => item.pic && item.audio_id && item.audio_id.length > 0)
-            .map((item) => ({
-              source: `lib://${item.audio_id.join("/")}`,
-              title: item.title || item.series || "Unbekannt",
-              series: item.series || "",
-              pic: item.pic,
-              model: item.model
-            }));
-          allAudio.push(...customAudio);
-          console.log(`Added ${customAudio.length} custom tonies`);
-        }
-      } catch (e) {
-        console.error("Error loading custom tonies:", e);
       }
 
       // Deduplicate by source path
@@ -562,10 +577,11 @@
           // Show current audio if exists
           if (contentInfo && contentInfo.picture && !contentInfo.picture.includes("unknown")) {
             document.getElementById("current-audio-img").src = contentInfo.picture;
+            // Title should be the series/main name, episode info goes below
             document.getElementById("current-audio-title").textContent =
-              contentInfo.episode || contentInfo.series || "Unbekannt";
+              contentInfo.series || contentInfo.episode || "Unbekannt";
             document.getElementById("current-audio-series").textContent =
-              contentInfo.series || "";
+              contentInfo.episode || "";
             currentContainer.classList.remove("hidden");
             noAudioContainer.classList.add("hidden");
           } else {
@@ -707,6 +723,7 @@
       card.innerHTML = `
         <img src="${audio.pic}" alt="${audio.title}" class="audio-card-img" />
         <div class="audio-card-title">${audio.title}</div>
+        ${audio.series ? `<div class="audio-card-series">${audio.series}</div>` : ""}
       `;
 
       card.addEventListener("click", () => {
