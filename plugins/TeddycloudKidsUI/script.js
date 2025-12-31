@@ -517,7 +517,8 @@
   function formatTagId(ruid, tagInfo) {
     const info = getContentInfo(tagInfo);
     if (info) {
-      const name = info.episode || info.series;
+      // Prefer series (main title) over episode
+      const name = info.series || info.episode;
       if (name) return name;
     }
     // Show short ID (first 4 + last 4 chars)
