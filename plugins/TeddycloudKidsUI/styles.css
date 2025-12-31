@@ -214,6 +214,32 @@ html, body {
   max-width: 300px;
 }
 
+/* Fullscreen Toggle Button */
+.btn-fullscreen {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  background: var(--tc-bg-soft);
+  color: var(--tc-muted);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-radius);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s, background 0.2s;
+  z-index: 10;
+}
+
+.btn-fullscreen:hover {
+  opacity: 1;
+  background: var(--tc-bg);
+}
+
+.btn-fullscreen:active {
+  transform: scale(0.95);
+}
+
 /* ============================================
    Box Selection Grid
    ============================================ */

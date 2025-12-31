@@ -51,7 +51,11 @@
       error_no_boxes: "Keine Tonieboxen gefunden",
       error_no_audio: "Keine Musik gefunden",
       error_link_failed: "Zuweisen fehlgeschlagen",
-      error_retry: "Nochmal versuchen"
+      error_retry: "Nochmal versuchen",
+
+      // Fullscreen
+      fullscreen_enter: "Vollbild",
+      fullscreen_exit: "Vollbild beenden"
     },
     en: {
       // Splash Screen
@@ -94,7 +98,11 @@
       error_no_boxes: "No Tonieboxes found",
       error_no_audio: "No audio found",
       error_link_failed: "Linking failed",
-      error_retry: "Try again"
+      error_retry: "Try again",
+
+      // Fullscreen
+      fullscreen_enter: "Fullscreen",
+      fullscreen_exit: "Exit Fullscreen"
     }
   };
 
@@ -764,6 +772,29 @@
     document.getElementById("btn-start").addEventListener("click", () => {
       navigateTo(SCREENS.SELECT_BOX);
     });
+
+    // Splash - Fullscreen toggle button
+    const fullscreenBtn = document.getElementById("btn-fullscreen");
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener("click", () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().then(() => {
+            fullscreenBtn.textContent = t("fullscreen_exit");
+          }).catch(() => {});
+        } else {
+          document.exitFullscreen().then(() => {
+            fullscreenBtn.textContent = t("fullscreen_enter");
+          }).catch(() => {});
+        }
+      });
+
+      // Update button text when fullscreen changes (e.g., user presses Escape)
+      document.addEventListener("fullscreenchange", () => {
+        fullscreenBtn.textContent = document.fullscreenElement
+          ? t("fullscreen_exit")
+          : t("fullscreen_enter");
+      });
+    }
 
     // Box Selection - Back button
     document.getElementById("btn-box-back").addEventListener("click", () => {
