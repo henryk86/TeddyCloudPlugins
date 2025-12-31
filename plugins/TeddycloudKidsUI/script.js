@@ -16,8 +16,8 @@
       splash_button: "Los geht's!",
 
       // Box Selection
-      box_title: "Welche Box gehoert dir?",
-      box_back: "Zurueck",
+      box_title: "Welche Box gehört dir?",
+      box_back: "Zurück",
 
       // Tag Placement
       tag_instruction: "Leg deinen Tonie auf die Box und warte...",
@@ -25,14 +25,14 @@
       tag_detected: "Tonie erkannt!",
       tag_current: "Aktuell:",
       tag_no_audio: "Noch keine Musik zugewiesen",
-      tag_choose_other: "Musik waehlen",
-      tag_switch: "Anderen Tonie waehlen",
-      tag_back: "Andere Box waehlen",
+      tag_choose_other: "Musik wählen",
+      tag_switch: "Anderen Tonie wählen",
+      tag_back: "Andere Box wählen",
       tag_timeout: "Kein Tonie gefunden. Nochmal versuchen?",
 
       // Audio Selection
       audio_title: "Was soll der Tonie spielen?",
-      audio_back: "Zurueck",
+      audio_back: "Zurück",
       audio_page: "Seite {current} / {total}",
       audio_loading: "Lade Musik...",
 
