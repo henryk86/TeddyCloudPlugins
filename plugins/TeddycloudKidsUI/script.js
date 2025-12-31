@@ -16,8 +16,8 @@
       splash_button: "Los geht's!",
 
       // Box Selection
-      box_title: "Welche Box gehoert dir?",
-      box_back: "Zurueck",
+      box_title: "Welche Box gehört dir?",
+      box_back: "Zurück",
 
       // Tag Placement
       tag_instruction: "Leg deinen Tonie auf die Box und warte...",
@@ -25,14 +25,14 @@
       tag_detected: "Tonie erkannt!",
       tag_current: "Aktuell:",
       tag_no_audio: "Noch keine Musik zugewiesen",
-      tag_choose_other: "Musik waehlen",
-      tag_switch: "Anderen Tonie waehlen",
-      tag_back: "Andere Box waehlen",
+      tag_choose_other: "Musik wählen",
+      tag_switch: "Anderen Tonie wählen",
+      tag_back: "Andere Box wählen",
       tag_timeout: "Kein Tonie gefunden. Nochmal versuchen?",
 
       // Audio Selection
       audio_title: "Was soll der Tonie spielen?",
-      audio_back: "Zurueck",
+      audio_back: "Zurück",
       audio_page: "Seite {current} / {total}",
       audio_loading: "Lade Musik...",
 
@@ -51,7 +51,11 @@
       error_no_boxes: "Keine Tonieboxen gefunden",
       error_no_audio: "Keine Musik gefunden",
       error_link_failed: "Zuweisen fehlgeschlagen",
-      error_retry: "Nochmal versuchen"
+      error_retry: "Nochmal versuchen",
+
+      // Fullscreen
+      fullscreen_enter: "Vollbild",
+      fullscreen_exit: "Vollbild beenden"
     },
     en: {
       // Splash Screen
@@ -94,7 +98,11 @@
       error_no_boxes: "No Tonieboxes found",
       error_no_audio: "No audio found",
       error_link_failed: "Linking failed",
-      error_retry: "Try again"
+      error_retry: "Try again",
+
+      // Fullscreen
+      fullscreen_enter: "Fullscreen",
+      fullscreen_exit: "Exit Fullscreen"
     }
   };
 
@@ -239,6 +247,25 @@
       // This returns TAF files that are physically present on the server
       const allAudio = [];
 
+      // Fetch custom tonie metadata for enrichment (has better title info)
+      // Note: We only use this for metadata, NOT for file paths (audio_id != file path)
+      let customMetadataMap = new Map();
+      try {
+        const customRes = await fetch("/api/toniesCustomJson");
+        if (customRes.ok) {
+          const customData = await customRes.json();
+          (Array.isArray(customData) ? customData : []).forEach((item) => {
+            if (item.audio_id && item.audio_id.length > 0) {
+              // Map by audio_id for lookup during library scan
+              customMetadataMap.set(String(item.audio_id[0]), item);
+            }
+          });
+          console.log(`Loaded ${customMetadataMap.size} custom tonie metadata entries`);
+        }
+      } catch (e) {
+        console.error("Error loading custom tonie metadata:", e);
+      }
+
       // Helper to recursively scan library directories
       async function scanLibraryDir(path = "") {
         const url = path
@@ -261,10 +288,27 @@
           // Only include files with valid tonieInfo (linked files)
           if (file.tonieInfo && file.tonieInfo.picture) {
             const fullPath = path ? `${path}/${file.name}` : file.name;
+
+            // Check if we have enriched metadata from custom JSON (by audio_id)
+            const audioId = file.tafHeader && file.tafHeader.audioId;
+            const customMeta = audioId ? customMetadataMap.get(String(audioId)) : null;
+
+            // Build title and series from available metadata
+            let title, series;
+            if (customMeta) {
+              // Custom tonie: use title, and episodes as additional info
+              title = customMeta.title || file.tonieInfo.series || file.name.replace(".taf", "");
+              series = customMeta.episodes || "";
+            } else {
+              // Regular tonie: use episode as title, series as subtitle
+              title = file.tonieInfo.episode || file.tonieInfo.series || file.name.replace(".taf", "");
+              series = file.tonieInfo.series || "";
+            }
+
             results.push({
               source: `lib://${fullPath}`,
-              title: file.tonieInfo.episode || file.tonieInfo.series || file.name.replace(".taf", ""),
-              series: file.tonieInfo.series || "",
+              title: title,
+              series: series,
               pic: file.tonieInfo.picture,
               model: file.tonieInfo.model
             });
@@ -288,27 +332,6 @@
         console.log(`Loaded ${libraryAudio.length} audio files from library`);
       } catch (e) {
         console.error("Error scanning library:", e);
-      }
-
-      // Also include custom tonies (toniesCustomJson) as fallback
-      try {
-        const customRes = await fetch("/api/toniesCustomJson");
-        if (customRes.ok) {
-          const customData = await customRes.json();
-          const customAudio = (Array.isArray(customData) ? customData : [])
-            .filter((item) => item.pic && item.audio_id && item.audio_id.length > 0)
-            .map((item) => ({
-              source: `lib://${item.audio_id.join("/")}`,
-              title: item.title || item.series || "Unbekannt",
-              series: item.series || "",
-              pic: item.pic,
-              model: item.model
-            }));
-          allAudio.push(...customAudio);
-          console.log(`Added ${customAudio.length} custom tonies`);
-        }
-      } catch (e) {
-        console.error("Error loading custom tonies:", e);
       }
 
       // Deduplicate by source path
@@ -502,7 +525,8 @@
   function formatTagId(ruid, tagInfo) {
     const info = getContentInfo(tagInfo);
     if (info) {
-      const name = info.episode || info.series;
+      // Prefer series (main title) over episode
+      const name = info.series || info.episode;
       if (name) return name;
     }
     // Show short ID (first 4 + last 4 chars)
@@ -562,10 +586,11 @@
           // Show current audio if exists
           if (contentInfo && contentInfo.picture && !contentInfo.picture.includes("unknown")) {
             document.getElementById("current-audio-img").src = contentInfo.picture;
+            // Title should be the series/main name, episode info goes below
             document.getElementById("current-audio-title").textContent =
-              contentInfo.episode || contentInfo.series || "Unbekannt";
+              contentInfo.series || contentInfo.episode || "Unbekannt";
             document.getElementById("current-audio-series").textContent =
-              contentInfo.series || "";
+              contentInfo.episode || "";
             currentContainer.classList.remove("hidden");
             noAudioContainer.classList.add("hidden");
           } else {
@@ -707,6 +732,7 @@
       card.innerHTML = `
         <img src="${audio.pic}" alt="${audio.title}" class="audio-card-img" />
         <div class="audio-card-title">${audio.title}</div>
+        ${audio.series ? `<div class="audio-card-series">${audio.series}</div>` : ""}
       `;
 
       card.addEventListener("click", () => {
@@ -746,6 +772,29 @@
     document.getElementById("btn-start").addEventListener("click", () => {
       navigateTo(SCREENS.SELECT_BOX);
     });
+
+    // Splash - Fullscreen toggle button
+    const fullscreenBtn = document.getElementById("btn-fullscreen");
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener("click", () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().then(() => {
+            fullscreenBtn.textContent = t("fullscreen_exit");
+          }).catch(() => {});
+        } else {
+          document.exitFullscreen().then(() => {
+            fullscreenBtn.textContent = t("fullscreen_enter");
+          }).catch(() => {});
+        }
+      });
+
+      // Update button text when fullscreen changes (e.g., user presses Escape)
+      document.addEventListener("fullscreenchange", () => {
+        fullscreenBtn.textContent = document.fullscreenElement
+          ? t("fullscreen_exit")
+          : t("fullscreen_enter");
+      });
+    }
 
     // Box Selection - Back button
     document.getElementById("btn-box-back").addEventListener("click", () => {
