@@ -72,9 +72,8 @@ jobs:
           # zip the folder content under top-level folder name
           (cd plugins && zip -r "../dist/$zipname" "$plugin")
 
-      - name: Upload artifact (one per zip)
-        uses: actions/upload-artifact@v4
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.zip.outputs.zipname }}
-          path: dist/${{ steps.zip.outputs.zipname }}
-          if-no-files-found: error
+          tag_name: plugins-${{ github.run_number }}
+          files: dist/${{ steps.zip.outputs.zipname }}
