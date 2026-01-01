@@ -6,46 +6,71 @@ on:
   workflow_dispatch:
 
 jobs:
-  zip-plugins:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.collect.outputs.plugins }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Collect plugin folders
+        id: collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd plugins
+
+          # List direct subfolders and output as JSON array for the matrix
+          plugins_json="$(find . -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | jq -R . | jq -s .)"
+          echo "plugins=$plugins_json" >> "$GITHUB_OUTPUT"
+
+  zip-plugin:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.prepare.outputs.plugins) }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+      - name: Install jq + zip
+        run: sudo apt-get update && sudo apt-get install -y jq zip
 
-      - name: Zip plugins
+      - name: Read version and zip plugin
+        id: zip
+        shell: bash
         run: |
+          set -euo pipefail
+
+          plugin="${{ matrix.plugin }}"
+          json="plugins/${plugin}/plugin.json"
+
+          if [ ! -f "$json" ]; then
+            echo "plugin.json missing in $plugin"
+            exit 1
+          fi
+
+          version="$(jq -r '(.version // .Version // empty)' "$json")"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "No version in $plugin"
+            exit 1
+          fi
+
           mkdir -p dist
+          zipname="${plugin}-${version}.zip"
+          echo "zipname=$zipname" >> "$GITHUB_OUTPUT"
 
-          cd plugins
+          echo "Zipping $zipname"
+          # zip the folder content under top-level folder name
+          (cd plugins && zip -r "../dist/$zipname" "$plugin")
 
-          for dir in */; do
-            plugin=$(basename "$dir")
-            json="$dir/plugin.json"
-
-            if [ ! -f "$json" ]; then
-              echo "⚠️ plugin.json fehlt in $plugin – übersprungen"
-              continue
-            fi
-
-            version=$(jq -r '.version' "$json")
-
-            if [ "$version" = "null" ] || [ -z "$version" ]; then
-              echo "⚠️ Keine Version in $plugin – übersprungen"
-              continue
-            fi
-
-            zipname="${plugin}-${version}.zip"
-            echo "Zipping $zipname"
-
-            zip -r "../dist/$zipname" "$plugin"
-          done
-
-      - name: Upload zip artifacts
+      - name: Upload artifact (one per zip)
         uses: actions/upload-artifact@v4
         with:
-          name: plugins-zips
-          path: dist/*.zip
+          name: ${{ steps.zip.outputs.zipname }}
+          path: dist/${{ steps.zip.outputs.zipname }}
+          if-no-files-found: error
