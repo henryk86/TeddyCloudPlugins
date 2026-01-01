@@ -1,0 +1,192 @@
+name: Zip Plugins
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.collect.outputs.plugins }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Collect plugin folders
+        id: collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd plugins
+
+          # Compact JSON array, single line (safe for GITHUB_OUTPUT)
+          plugins_json="$(find . -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+            | sort \
+            | jq -Rsc 'split("\n")[:-1]')"
+
+          echo "plugins=$plugins_json" >> "$GITHUB_OUTPUT"
+
+      - name: Set release tag (UTC datetime)
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "tag=$(date -u +'%Y-%m-%d_%H-%M')" >> "$GITHUB_OUTPUT"
+
+  zip-plugin:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.prepare.outputs.plugins) }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install jq + zip
+        run: sudo apt-get update && sudo apt-get install -y jq zip
+
+      - name: Read version and zip plugin
+        id: zip
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          plugin="${{ matrix.plugin }}"
+          json="plugins/${plugin}/plugin.json"
+
+          if [ ! -f "$json" ]; then
+            echo "plugin.json missing in $plugin"
+            exit 1
+          fi
+
+          version="$(jq -r '(.version // .Version // empty)' "$json")"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "No version in $plugin"
+            exit 1
+          fi
+
+          mkdir -p dist
+          zipname="${plugin}-${version}.zip"
+          echo "zipname=$zipname" >> "$GITHUB_OUTPUT"
+
+          echo "Zipping $zipname"
+          (cd plugins && zip -r "../dist/$zipname" "$plugin")
+
+      - name: Upload zip artifact (one per zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.zipname }}
+          path: dist/${{ steps.zip.outputs.zipname }}
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, zip-plugin]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (for plugin.json -> release notes)
+        uses: actions/checkout@v4
+
+      - name: Download all zip artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect zips into release_dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release_dist
+          shopt -s nullglob
+
+          # download-artifact creates subfolders per artifact; flatten them
+          for f in artifacts/**/**/*.zip artifacts/**/*.zip; do
+            [ -f "$f" ] || continue
+            mv -f "$f" release_dist/
+          done
+
+          echo "Collected:"
+          ls -la release_dist
+
+      - name: Install jq + gh
+        run: sudo apt-get update && sudo apt-get install -y jq gh
+
+      - name: Generate release notes from plugin.json
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${{ needs.prepare.outputs.tag }}"
+          notes_file="release_dist/RELEASE_NOTES.md"
+
+          {
+            echo "# Plugins ${tag}"
+            echo
+            echo "Download the plugin ZIP(s) from this release."
+            echo
+            echo "## Install / enable a plugin"
+            echo "1. Download the plugin ZIP from the latest release."
+            echo "2. Upload/copy it to your TeddyCloud host."
+            echo "3. Unzip it into TeddyCloud’s \`plugins/\` directory so the structure is \`plugins/<pluginName>/plugin.json\`."
+            echo "4. Reload/restart TeddyCloud."
+            echo
+            echo "Future: you will be able to upload the ZIP directly via the TeddyCloud Web UI plugin upload function."
+            echo
+            echo "## Included plugins"
+            echo
+          } > "$notes_file"
+
+          shopt -s nullglob
+          for json in plugins/*/plugin.json; do
+            plugin_dir="$(basename "$(dirname "$json")")"
+            name="$(jq -r '(.pluginName // empty)' "$json")"
+            version="$(jq -r '(.version // .Version // empty)' "$json")"
+            desc="$(jq -r '(.description // empty)' "$json")"
+
+            [ -n "$name" ] || name="$plugin_dir"
+            [ -n "$version" ] || version="unknown"
+
+            zip="${plugin_dir}-${version}.zip"
+
+            echo "- **${zip}** — ${name}" >> "$notes_file"
+            if [ -n "$desc" ]; then
+              echo "  - ${desc}" >> "$notes_file"
+            fi
+          done
+
+          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Create/Update release and upload zips (no matrix races)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          tag="${{ needs.prepare.outputs.tag }}"
+          title="Plugins ${tag}"
+          notes_file="${{ steps.notes.outputs.notes_file }}"
+
+          shopt -s nullglob
+          files=(release_dist/*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No zip files found in release_dist/"
+            exit 1
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" --notes-file "$notes_file"
+          else
+            gh release create "$tag" --title "$title" --notes-file "$notes_file"
+          fi
+
+          gh release upload "$tag" "${files[@]}" --clobber
