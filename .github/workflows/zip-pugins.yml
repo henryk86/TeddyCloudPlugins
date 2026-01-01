@@ -77,7 +77,7 @@ jobs:
 
       - name: Set release date
         id: date
-        run: echo "date=$(date -u +'%Y-%m-%d-%H%M')" >> "$GITHUB_OUTPUT"
+        run: echo "date=$(date -u +'%Y-%m-%d %H:%M')" >> "$GITHUB_OUTPUT"
 
       - name: Create release + upload assets
         uses: softprops/action-gh-release@v2
