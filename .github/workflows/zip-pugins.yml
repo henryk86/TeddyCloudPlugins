@@ -81,8 +81,7 @@ jobs:
           echo "Zipping $zipname"
           (cd plugins && zip -r "../dist/$zipname" "$plugin")
 
-      # Upload each zip as its own artifact (so a later job can collect all zips)
-      - name: Upload zip artifact
+      - name: Upload zip artifact (one per zip)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.zip.outputs.zipname }}
@@ -99,19 +98,23 @@ jobs:
       - name: Download all zip artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: artifacts
 
-      - name: Normalize dist folder
+      - name: Collect zips into release_dist
         shell: bash
         run: |
           set -euo pipefail
-          # download-artifact creates one subfolder per artifact; collect zips into dist/
+          mkdir -p release_dist
           shopt -s nullglob
-          for f in dist/*/*.zip; do
-            mv "$f" dist/
+
+          # download-artifact creates subfolders per artifact; flatten them
+          for f in artifacts/**/**/*.zip artifacts/**/*.zip; do
+            [ -f "$f" ] || continue
+            mv -f "$f" release_dist/
           done
-          find dist -mindepth 1 -type d -empty -delete || true
-          ls -la dist
+
+          echo "Collected:"
+          ls -la release_dist
 
       - name: Install jq + gh
         run: sudo apt-get update && sudo apt-get install -y jq gh
@@ -123,7 +126,7 @@ jobs:
           set -euo pipefail
 
           tag="${{ needs.prepare.outputs.tag }}"
-          notes_file="dist/RELEASE_NOTES.md"
+          notes_file="release_dist/RELEASE_NOTES.md"
 
           {
             echo "# Plugins ${tag}"
@@ -162,9 +165,7 @@ jobs:
 
           echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
 
-      # IMPORTANT: Create/Update release ONCE (no matrix races) and upload all zips via gh CLI.
-      # This prevents the softprops "Too many retries" error which is typically caused by concurrent release finalization/uploads.
-      - name: Create/Update release and upload zips
+      - name: Create/Update release and upload zips (no matrix races)
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -176,9 +177,9 @@ jobs:
           notes_file="${{ steps.notes.outputs.notes_file }}"
 
           shopt -s nullglob
-          files=(dist/*.zip)
+          files=(release_dist/*.zip)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "No zip files found in dist/"
+            echo "No zip files found in release_dist/"
             exit 1
           fi
 
