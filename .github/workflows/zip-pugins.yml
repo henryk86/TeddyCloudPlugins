@@ -75,8 +75,13 @@ jobs:
           # zip the folder content under top-level folder name
           (cd plugins && zip -r "../dist/$zipname" "$plugin")
 
-      - name: Upload to GitHub Release
+      - name: Set release date
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+      - name: Create release + upload assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: plugins-${{ github.run_number }}
-          files: dist/${{ steps.zip.outputs.zipname }}
+          tag_name: ${{ steps.date.outputs.date }}
+          name: Plugins ${{ steps.date.outputs.date }}
+          files: dist/*.zip
