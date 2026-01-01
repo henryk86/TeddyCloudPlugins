@@ -31,7 +31,7 @@ jobs:
               continue
             fi
 
-            version=$(jq -r '.Version' "$json")
+            version=$(jq -r '.version' "$json")
 
             if [ "$version" = "null" ] || [ -z "$version" ]; then
               echo "⚠️ Keine Version in $plugin – übersprungen"
