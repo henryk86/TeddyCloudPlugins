@@ -1,0 +1,51 @@
+name: Zip Plugins
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  zip-plugins:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Zip plugins (without Plugins folder)
+        run: |
+          mkdir -p dist
+
+          cd Plugins
+
+          for dir in */; do
+            plugin=$(basename "$dir")
+            json="$dir/Plugin.json"
+
+            if [ ! -f "$json" ]; then
+              echo "⚠️ Plugin.json fehlt in $plugin – übersprungen"
+              continue
+            fi
+
+            version=$(jq -r '.Version' "$json")
+
+            if [ "$version" = "null" ] || [ -z "$version" ]; then
+              echo "⚠️ Keine Version in $plugin – übersprungen"
+              continue
+            fi
+
+            zipname="${plugin}-${version}.zip"
+            echo "Zipping $zipname"
+
+            zip -r "../dist/$zipname" "$plugin"
+          done
+
+      - name: Upload zip artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugins-zips
+          path: dist/*.zip
