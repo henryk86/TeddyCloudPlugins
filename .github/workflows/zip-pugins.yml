@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-     - name: Collect plugin folders
+      - name: Collect plugin folders
         id: collect
         shell: bash
         run: |
@@ -27,6 +27,7 @@ jobs:
             | jq -Rsc 'split("\n")[:-1]')"
 
           echo "plugins=$plugins_json" >> "$GITHUB_OUTPUT"
+
 
   zip-plugin:
     needs: prepare
