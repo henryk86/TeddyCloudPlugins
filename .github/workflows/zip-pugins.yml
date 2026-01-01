@@ -16,18 +16,18 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Zip plugins (without Plugins folder)
+      - name: Zip plugins
         run: |
           mkdir -p dist
 
-          cd Plugins
+          cd plugins
 
           for dir in */; do
             plugin=$(basename "$dir")
-            json="$dir/Plugin.json"
+            json="$dir/plugin.json"
 
             if [ ! -f "$json" ]; then
-              echo "⚠️ Plugin.json fehlt in $plugin – übersprungen"
+              echo "⚠️ plugin.json fehlt in $plugin – übersprungen"
               continue
             fi
 
