@@ -1,0 +1,9 @@
+{
+  "pluginName": "ESP32 Flasher Test Suite",
+  "description": "Comprehensive testing tool for ESP32/ESP32-S2/ESP32-S3/ESP32-C3/ESP32-C6 devices",
+  "author": "g3gg0",
+  "version": "0.9.0",
+  "pluginHomepage": "https://github.com/g3gg0/esp32_flasher",
+  "teddyCloudSection": "tonieboxes",
+  "icon": "ToolOutlined"
+}
