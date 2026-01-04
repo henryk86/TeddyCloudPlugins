@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tonie Auswahl</title>
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- THEME ADAPTER -->
+    <script>
+      (function () {
+        const root = document.documentElement;
+        const setVars = (bg, fg, fontFamily, fontSize) => {
+          if (!bg || !fg) return;
+          root.style.setProperty("--tc-bg", String(bg).trim());
+          root.style.setProperty("--tc-fg", String(fg).trim());
+          root.style.setProperty(
+            "--tc-border",
+            "color-mix(in srgb, " + fg + " 20%, transparent)"
+          );
+          root.style.setProperty(
+            "--tc-bg-soft",
+            "color-mix(in srgb, " + bg + " 92%, " + fg + " 8%)"
+          );
+          if (!root.style.getPropertyValue("--tc-primary"))
+            root.style.setProperty("--tc-primary", "#1677ff");
+          if (fontFamily) {
+            document.documentElement.style.fontFamily = fontFamily;
+            document.body.style.fontFamily = fontFamily;
+          }
+          if (fontSize) {
+            document.documentElement.style.fontSize = fontSize;
+            document.body.style.fontSize = fontSize;
+          }
+        };
+        const rgbToL = (rgb) => {
+          const m = rgb && rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+          if (!m) return null;
+          const [r, g, b] = [+m[1], +m[2], +m[3]];
+          return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        };
+        const applyThemeFlag = (bg) => {
+          const L = rgbToL(bg);
+          if (L != null)
+            root.setAttribute("data-tc-theme", L < 0.5 ? "dark" : "light");
+        };
+        const applyExplicit = (t) => {
+          if (t === "dark" || t === "light") {
+            root.setAttribute("data-tc-theme", t);
+            return true;
+          }
+          return false;
+        };
+        const urlTheme = (
+          new URLSearchParams(location.search).get("tcTheme") || ""
+        ).toLowerCase();
+        const sysQuery =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)");
+        const followSystem = () =>
+          applyExplicit(sysQuery.matches ? "dark" : "light");
+        const readFromParent = () => {
+          try {
+            const pdoc = window.parent && window.parent.document;
+            if (!pdoc) return false;
+            const hostEl =
+              pdoc.querySelector(".ant-layout-content") ||
+              pdoc.querySelector("main.ant-layout-content") ||
+              pdoc.body;
+            if (!hostEl) return false;
+            const cs = window.parent.getComputedStyle(hostEl);
+            const bg =
+              cs.backgroundColor || cs.background || "rgb(255,255,255)";
+            const fg = cs.color || "rgb(31,35,40)";
+            const font =
+              cs.fontFamily ||
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const fontSize = cs.fontSize || "14px";
+            setVars(bg, fg, font, fontSize);
+            if (!root.hasAttribute("data-tc-theme")) applyThemeFlag(bg);
+            return true;
+          } catch (e) {
+            return false;
+          }
+        };
+        if (urlTheme && urlTheme !== "auto") applyExplicit(urlTheme);
+        readFromParent();
+        if (!root.hasAttribute("data-tc-theme") || urlTheme === "auto") {
+          if (sysQuery) {
+            followSystem();
+            try {
+              sysQuery.addEventListener("change", followSystem);
+            } catch (_) {
+              sysQuery.addListener && sysQuery.addListener(followSystem);
+            }
+          }
+        }
+        window.addEventListener(
+          "message",
+          (ev) => {
+            const d = ev && ev.data;
+            if (
+              d &&
+              d.type === "tc-theme" &&
+              (d.theme === "dark" || d.theme === "light")
+            )
+              applyExplicit(d.theme);
+            if (d && d.type === "tc-theme-vars" && d.bg && d.fg) {
+              setVars(d.bg, d.fg);
+              applyThemeFlag(d.bg);
+            }
+          },
+          false
+        );
+        (function () {
+          try {
+            const pdoc = window.parent && window.parent.document;
+            if (!pdoc) return;
+            const hostEl =
+              pdoc.querySelector(".ant-layout-content") ||
+              pdoc.querySelector("main.ant-layout-content") ||
+              pdoc.body;
+            const update = () => {
+              readFromParent();
+            };
+            const mo = new MutationObserver(update);
+            mo.observe(pdoc.documentElement, {
+              attributes: true,
+              attributeFilter: ["class", "data-theme"],
+            });
+            mo.observe(pdoc.body, {
+              attributes: true,
+              attributeFilter: ["class", "data-theme", "style"],
+            });
+            if (hostEl && hostEl !== pdoc.body)
+              mo.observe(hostEl, {
+                attributes: true,
+                attributeFilter: ["class", "data-theme", "style"],
+              });
+            window.parent.addEventListener &&
+              window.parent.addEventListener("transitionend", update, true);
+            window.parent.addEventListener &&
+              window.parent.addEventListener("resize", update);
+            let i = 0;
+            const t = setInterval(() => {
+              update();
+              if (++i > 5) clearInterval(t);
+            }, 2000);
+          } catch (_) {}
+        })();
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Global Fullscreen Toggle (always visible) -->
+      <button id="btn-fullscreen" class="btn-fullscreen" data-i18n="fullscreen_enter" title="Fullscreen"></button>
+
+      <!-- Screen: Splash -->
+      <div id="screen-splash" class="screen" data-screen="splash">
+        <div class="screen-content splash-content">
+          <div class="splash-image">
+            <svg class="tonie-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M15.75 19.13C14.92 19.13 14.25 18.29 14.25 17.25C14.25 16.22 14.92 15.38 15.75 15.38C16.58 15.38 17.25 16.22 17.25 17.25C17.25 18.29 16.58 19.13 15.75 19.13M12 11.25C10.76 11.25 9.75 10.41 9.75 9.38C9.75 8.34 10.76 7.5 12 7.5C13.24 7.5 14.25 8.34 14.25 9.38C14.25 10.41 13.24 11.25 12 11.25M8.25 19.13C7.42 19.13 6.75 18.29 6.75 17.25C6.75 16.22 7.42 15.38 8.25 15.38C9.08 15.38 9.75 16.22 9.75 17.25C9.75 18.29 9.08 19.13 8.25 19.13M12 8.25C12.41 8.25 12.75 8.59 12.75 9C12.75 9.41 12.41 9.75 12 9.75C11.59 9.75 11.25 9.41 11.25 9C11.25 8.59 11.59 8.25 12 8.25M18.75 12C18.43 12 18.12 12.07 17.84 12.2C17.36 11.59 16.71 11.07 15.93 10.67C16.5 9.87 16.84 8.9 16.84 7.85C16.84 7.83 16.84 7.81 16.84 7.79C17.93 7.56 18.75 6.59 18.75 5.42C18.75 4.09 17.66 3 16.33 3C15.64 3 15 3.29 14.58 3.75C13.83 3.28 12.95 3 12 3C11.05 3 10.16 3.28 9.42 3.75C9 3.29 8.36 3 7.67 3C6.34 3 5.25 4.09 5.25 5.42C5.25 6.58 6.07 7.55 7.15 7.79C7.15 7.81 7.15 7.83 7.15 7.85C7.15 8.9 7.5 9.88 8.06 10.67C7.29 11.07 6.64 11.59 6.16 12.2C5.88 12.07 5.57 12 5.25 12C4 12 3 13 3 14.25C3 15.5 4 16.5 5.25 16.5C5.27 16.5 5.29 16.5 5.31 16.5C5.27 16.74 5.25 17 5.25 17.25C5.25 19.32 6.59 21 8.25 21C9.26 21 10.15 20.37 10.7 19.41C11.12 19.47 11.55 19.5 12 19.5C12.45 19.5 12.88 19.47 13.3 19.41C13.85 20.37 14.74 21 15.75 21C17.41 21 18.75 19.32 18.75 17.25C18.75 17 18.73 16.74 18.69 16.5C18.71 16.5 18.73 16.5 18.75 16.5C20 16.5 21 15.5 21 14.25C21 13 20 12 18.75 12" />
+            </svg>
+          </div>
+          <h1 class="splash-title" data-i18n="splash_title"></h1>
+          <button id="btn-start" class="btn btn-primary btn-large" data-i18n="splash_button"></button>
+        </div>
+      </div>
+
+      <!-- Screen: Box Selection -->
+      <div id="screen-select-box" class="screen hidden" data-screen="select_box">
+        <div class="screen-content">
+          <h2 class="screen-title" data-i18n="box_title"></h2>
+          <div id="box-grid" class="box-grid">
+            <!-- Boxes loaded dynamically -->
+          </div>
+          <button id="btn-box-back" class="btn btn-back" data-i18n="box_back"></button>
+        </div>
+      </div>
+
+      <!-- Screen: Tag Placement -->
+      <div id="screen-place-tag" class="screen hidden" data-screen="place_tag">
+        <div class="screen-content">
+          <!-- Waiting state -->
+          <div id="tag-waiting" class="tag-state">
+            <div class="tag-animation">
+              <div class="tag-icon"></div>
+              <div class="arrow-icon"></div>
+              <div class="box-icon"></div>
+            </div>
+            <p class="tag-instruction" data-i18n="tag_instruction"></p>
+            <div class="loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <p class="tag-status" data-i18n="tag_searching"></p>
+          </div>
+
+          <!-- Detected state -->
+          <div id="tag-detected" class="tag-state hidden">
+            <div class="tag-success-icon"></div>
+            <p class="tag-detected-text"><span data-i18n="tag_detected"></span> <span id="tag-id" class="tag-id"></span></p>
+            <div id="current-audio-container" class="current-audio hidden">
+              <p class="current-audio-label" data-i18n="tag_current"></p>
+              <div class="current-audio-card">
+                <img id="current-audio-img" class="current-audio-img" src="" alt="" />
+                <div class="current-audio-info">
+                  <span id="current-audio-title" class="current-audio-title"></span>
+                  <span id="current-audio-series" class="current-audio-series"></span>
+                </div>
+              </div>
+            </div>
+            <div id="no-audio-container" class="no-audio hidden">
+              <p data-i18n="tag_no_audio"></p>
+            </div>
+            <div class="tag-buttons">
+              <button id="btn-choose-audio" class="btn btn-primary btn-large" data-i18n="tag_choose_other"></button>
+              <button id="btn-switch-tonie" class="btn btn-secondary" data-i18n="tag_switch"></button>
+            </div>
+          </div>
+
+          <button id="btn-tag-back" class="btn btn-back" data-i18n="tag_back"></button>
+        </div>
+      </div>
+
+      <!-- Screen: Audio Selection -->
+      <div id="screen-select-audio" class="screen hidden" data-screen="select_audio">
+        <div class="screen-content">
+          <h2 class="screen-title" data-i18n="audio_title"></h2>
+          <!-- Search and Pagination Controls -->
+          <div class="audio-controls">
+            <div class="search-box">
+              <input type="text" id="audio-search" class="search-input" placeholder="Suchen..." autocomplete="off" />
+              <button id="btn-search-clear" class="btn-search-clear hidden">&times;</button>
+            </div>
+            <div class="pagination">
+              <button id="btn-audio-prev" class="btn btn-nav">&lt;</button>
+              <span id="audio-page-info" class="page-info"></span>
+              <button id="btn-audio-next" class="btn btn-nav">&gt;</button>
+            </div>
+          </div>
+          <div id="audio-grid" class="audio-grid">
+            <!-- Audio items loaded dynamically -->
+          </div>
+          <button id="btn-audio-back" class="btn btn-back" data-i18n="audio_back"></button>
+        </div>
+      </div>
+
+      <!-- Screen: Confirmation -->
+      <div id="screen-confirm" class="screen hidden" data-screen="confirm">
+        <div class="screen-content confirm-content">
+          <div class="confirm-image-container">
+            <img id="confirm-img" class="confirm-img" src="" alt="" />
+          </div>
+          <h3 id="confirm-title" class="confirm-title"></h3>
+          <p id="confirm-series" class="confirm-series"></p>
+          <p class="confirm-question" data-i18n="confirm_question"></p>
+          <div class="confirm-buttons">
+            <button id="btn-confirm-no" class="btn btn-secondary btn-large" data-i18n="confirm_no"></button>
+            <button id="btn-confirm-yes" class="btn btn-success btn-large" data-i18n="confirm_yes"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen: Success -->
+      <div id="screen-success" class="screen hidden" data-screen="success">
+        <div class="screen-content success-content">
+          <div class="success-animation">
+            <div class="success-icon"></div>
+          </div>
+          <h2 class="success-title" data-i18n="success_title"></h2>
+          <p id="success-message" class="success-message"></p>
+          <button id="btn-restart" class="btn btn-primary btn-large" data-i18n="success_again"></button>
+        </div>
+      </div>
+
+      <!-- Screen: Error -->
+      <div id="screen-error" class="screen hidden" data-screen="error">
+        <div class="screen-content error-content">
+          <div class="error-icon"></div>
+          <h2 class="error-title" data-i18n="error_generic"></h2>
+          <p id="error-message" class="error-message"></p>
+          <button id="btn-retry" class="btn btn-primary btn-large" data-i18n="error_retry"></button>
+        </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
