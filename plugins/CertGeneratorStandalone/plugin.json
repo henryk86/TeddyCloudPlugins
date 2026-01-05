@@ -1,0 +1,9 @@
+{
+  "pluginName": "CA Certificate Generator & Decoder",
+  "description": "CA Certificate Generator & Decoder - Generate or decode X.509 certificates using node-forge",
+  "author": "g3gg0",
+  "version": "0.9.0",
+  "pluginHomepage": "https://github.com/g3gg0/esp32_flasher",
+  "teddyCloudSection": "tonieboxes",
+  "icon": "SafetyCertificateOutlined"
+}

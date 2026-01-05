@@ -11,8 +11,18 @@ Share reusable functionality with the community.
 
 ## Install or enable a plugin
 
-- Copy the plugin you want to use into your TeddyCloud plugins/ directory.
-- Reload TeddyCloud and the added plugin is available.
+Download the plugin ZIP from the latest GitHub release.
+
+**Option A**: Manual install (current method)
+
+- Copy/upload the ZIP to your TeddyCloud host.
+
+- Unzip it into TeddyCloud’s _plugins/_ directory so the folder structure is plugins/\<pluginName\>/plugin.json.
+
+- Reload/restart TeddyCloud. The plugin will then be available.
+
+**Option B**: TeddyCloud Web UI (future)
+- Download the plugin ZIP from the latest release and upload it directly using the TeddyCloud Web UI plugin upload function (once available).
 
 ## Creating Your Own Plugin
 
