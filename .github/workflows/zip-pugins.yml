@@ -129,8 +129,6 @@ jobs:
           notes_file="release_dist/RELEASE_NOTES.md"
 
           {
-            echo "# Plugins ${tag}"
-            echo
             echo "Download the plugin ZIP(s) from this release."
             echo
             echo "## Install / enable a plugin"

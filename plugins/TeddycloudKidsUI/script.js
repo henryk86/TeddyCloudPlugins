@@ -622,12 +622,12 @@
   }
 
   async function onSelectAudioEnter() {
-    // Reset search state
-    setState({ searchQuery: "", audioPage: 0 });
-    document.getElementById("audio-search").value = "";
-    document.getElementById("btn-search-clear").classList.add("hidden");
-
     if (state.availableAudio.length === 0) {
+      // First time loading - reset search state
+      setState({ searchQuery: "", audioPage: 0 });
+      document.getElementById("audio-search").value = "";
+      document.getElementById("btn-search-clear").classList.add("hidden");
+
       showLoading(true);
       try {
         const audio = await API.getAudioContent();
@@ -644,8 +644,10 @@
         showLoading(false);
       }
     } else {
-      // Reset filter to show all
-      setState({ filteredAudio: state.availableAudio });
+      // Returning to audio selection - preserve search state
+      // Restore UI from state
+      document.getElementById("audio-search").value = state.searchQuery;
+      document.getElementById("btn-search-clear").classList.toggle("hidden", !state.searchQuery);
     }
 
     renderAudioGrid();
