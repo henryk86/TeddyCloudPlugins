@@ -2,7 +2,7 @@
   "pluginName": "Kids UI",
   "description": "Kinderfreundliche Oberflaeche zum Bespielen von Tonies",
   "author": "Basti-Fantasti",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "pluginHomepage": "https://github.com/Basti-Fantasti/TeddyCloudPlugins",
   "teddyCloudSection": "home",
   "icon": "StarOutlined",
