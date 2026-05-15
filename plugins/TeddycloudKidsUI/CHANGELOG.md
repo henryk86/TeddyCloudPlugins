@@ -2,6 +2,28 @@
 
 All notable changes to the Kids UI plugin will be documented in this file.
 
+## [0.3.0] - 2026-05-14
+
+### Added
+- Settings dialog accessible via gear icon on the splash screen
+- Configurable items per page (9/18/27/36, multiples of one grid row)
+- Configurable icon size for the list view (S/M/L)
+- Configurable icon size for the detail view (S/M/L)
+- Language override in settings (auto/de/en)
+- Settings persisted in browser localStorage (TeddyCloud settings API integration deferred)
+
+### Changed
+- Wording shifted from "Musik" to "Geschichte" across the flow
+- Audio screen title is now a direct question to the child
+- Confirmation question references the specific story
+- List icon size auto-couples items-per-page: S/M → 27 (3 rows), L → 18 (2 rows)
+- Detail view images enlarged ~25% across all sizes (S 175, M 225, L 300)
+
+### Fixed
+- Inconsistent button label on the tag-detected screen ("Musik wählen" → "Geschichte wählen")
+- Audio grid no longer triggers pull-to-refresh on tablets
+- Audio controls row stays single-line on landscape tablets
+
 ## [0.2.2] - 2026-01-05
 
 ### Fixed

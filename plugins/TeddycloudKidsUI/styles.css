@@ -27,6 +27,10 @@
   --btn-min-height: 56px;
   --card-min-size: 120px;
   --touch-target: 48px;
+
+  /* Configurable icon sizes (M = default) */
+  --kid-list-img: 80px;
+  --kid-detail-img: 225px;
 }
 
 :root[data-tc-theme="dark"] {
@@ -41,6 +45,11 @@
   --kid-secondary: #5ED9D1;
   --kid-success: #A5F08E;
 }
+
+:root[data-list-size="S"]   { --kid-list-img: 70px; }
+:root[data-list-size="L"]   { --kid-list-img: 130px; }
+:root[data-detail-size="S"] { --kid-detail-img: 175px; }
+:root[data-detail-size="L"] { --kid-detail-img: 300px; }
 
 /* ============================================
    Base Styles
@@ -60,13 +69,20 @@ html, body {
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   font-size: 16px;
   line-height: 1.5;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 #app {
   width: 100%;
-  min-height: 100vh;
+  min-height: 600px;
   display: flex;
   flex-direction: column;
+}
+
+html:fullscreen #app,
+html:-webkit-full-screen #app {
+  min-height: 100vh;
 }
 
 /* ============================================
@@ -505,11 +521,12 @@ html, body {
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: var(--tc-gap);
   width: 100%;
-  max-height: 60vh; /* Reasonable height for internal scrolling */
+  max-height: 60vh;
   min-height: 300px;
   overflow-y: auto;
   padding: var(--tc-gap);
   scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
 }
 
 .audio-card {
@@ -531,8 +548,8 @@ html, body {
 }
 
 .audio-card-img {
-  width: 80px;
-  height: 80px;
+  width: var(--kid-list-img);
+  height: var(--kid-list-img);
   border-radius: 8px;
   object-fit: cover;
 }
@@ -676,8 +693,8 @@ html, body {
 }
 
 .confirm-image-container {
-  width: 180px;
-  height: 180px;
+  width: var(--kid-detail-img);
+  height: var(--kid-detail-img);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -888,14 +905,9 @@ html, body {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   }
 
-  .audio-card-img {
-    width: 60px;
-    height: 60px;
-  }
-
   .confirm-image-container {
-    width: 140px;
-    height: 140px;
+    width: calc(var(--kid-detail-img) - 40px);
+    height: calc(var(--kid-detail-img) - 40px);
   }
 }
 
@@ -903,15 +915,146 @@ html, body {
   .audio-grid {
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   }
-
-  .audio-card-img {
-    width: 90px;
-    height: 90px;
-  }
 }
 
 @media (min-width: 1024px) {
   .audio-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
+
+  .audio-controls {
+    flex-wrap: nowrap;
+  }
+
+  .search-box {
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+}
+
+/* ============================================
+   Settings Gear Button (splash only)
+   ============================================ */
+.btn-settings {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 40px;
+  text-align: center;
+  background: var(--tc-bg-soft);
+  color: var(--tc-muted);
+  border: 1px solid var(--tc-border);
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s, background 0.2s;
+  z-index: 10;
+}
+
+.btn-settings:hover {
+  opacity: 1;
+  background: var(--tc-bg);
+}
+
+.btn-settings:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   Settings Modal
+   ============================================ */
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-modal.hidden {
+  display: none !important;
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.settings-card {
+  position: relative;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  background: var(--tc-bg);
+  color: var(--tc-fg);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-radius);
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.settings-heading {
+  margin: 0 0 16px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.settings-label {
+  font-size: 0.95rem;
+  color: var(--tc-fg);
+}
+
+.settings-segmented {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.settings-segmented button {
+  flex: 1 1 auto;
+  min-width: 56px;
+  min-height: 40px;
+  padding: 8px 10px;
+  background: var(--tc-bg-soft);
+  color: var(--tc-fg);
+  border: 1px solid var(--tc-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.settings-segmented button.is-active {
+  background: var(--kid-primary);
+  border-color: var(--kid-primary);
+  color: #fff;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 10px;
+  font-size: 1rem;
+  background: var(--tc-bg-soft);
+  color: var(--tc-fg);
+  border: 1px solid var(--tc-border);
+  border-radius: 8px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
