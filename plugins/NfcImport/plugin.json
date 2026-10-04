@@ -1,0 +1,8 @@
+{
+  "pluginName": "NFC Dump Import",
+  "author": "MSchlick",
+  "version": "1.0.0",
+  "description": "Import Flipper NFC dumps as TeddyCloud content JSON and retrieve the TAF file from Boxine directly through TeddyCloud.",
+  "teddyCloudSection": "tonies",
+  "icon": "ImportOutlined"
+}

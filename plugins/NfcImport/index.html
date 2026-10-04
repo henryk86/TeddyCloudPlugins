@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>NFC Dump Import</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --tc-bg: #fff;
+        --tc-fg: #1f2328;
+        --tc-muted: #667085;
+        --tc-border: #d0d7de;
+        --tc-primary: #1677ff;
+        --tc-bg-soft: #f6f8fa;
+        --tc-error: #b42318;
+        --tc-success: #067647;
+      }
+      :root[data-tc-theme="dark"] {
+        color-scheme: dark;
+        --tc-bg: #0f1419;
+        --tc-fg: #e6e7ea;
+        --tc-muted: #9aa0a6;
+        --tc-border: #2b3138;
+        --tc-primary: #3b82f6;
+        --tc-bg-soft: #141b22;
+        --tc-error: #f97066;
+        --tc-success: #32d583;
+      }
+      html,
+      body {
+        background: var(--tc-bg);
+        color: var(--tc-fg);
+        font: inherit;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 16px;
+        max-width: 900px;
+      }
+      .card {
+        border: 1px solid var(--tc-border);
+        border-radius: 10px;
+        padding: 16px;
+        margin: 12px 0;
+      }
+      .muted {
+        color: var(--tc-muted);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      button,
+      input[type="file"]::file-selector-button {
+        color: inherit;
+        background: var(--tc-bg-soft);
+        border: 1px solid var(--tc-border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button.primary {
+        color: #fff;
+        background: var(--tc-primary);
+        border-color: transparent;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+      input[type="file"] {
+        max-width: 100%;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 8px 16px;
+        overflow-wrap: anywhere;
+      }
+      dt {
+        color: var(--tc-muted);
+      }
+      dd {
+        margin: 0;
+        font-family: monospace;
+      }
+      #status {
+        min-height: 1.5em;
+        overflow-wrap: anywhere;
+      }
+      #status[data-kind="error"] {
+        color: var(--tc-error);
+      }
+      #status[data-kind="success"] {
+        color: var(--tc-success);
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+    <script>
+      (function () {
+        try {
+          const host = window.parent.document.querySelector(
+            ".ant-layout-content, main.ant-layout-content"
+          );
+          if (!host) return;
+          const styles = window.parent.getComputedStyle(host);
+          const bg = styles.backgroundColor;
+          const fg = styles.color;
+          if (bg) document.documentElement.style.setProperty("--tc-bg", bg);
+          if (fg) document.documentElement.style.setProperty("--tc-fg", fg);
+          const rgb = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+          if (rgb) {
+            const luminance =
+              (0.2126 * Number(rgb[1]) +
+                0.7152 * Number(rgb[2]) +
+                0.0722 * Number(rgb[3])) /
+              255;
+            document.documentElement.dataset.tcTheme =
+              luminance < 0.5 ? "dark" : "light";
+          }
+        } catch (_) {
+          // A standalone preview may not have access to a parent document.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1>NFC Dump Import <span class="muted">(v1.0.0)</span></h1>
+      <p class="muted">
+        Select a Flipper `.nfc` dump and import it into TeddyCloud.
+      </p>
+    </header>
+
+    <section class="card" aria-labelledby="import-heading">
+      <h2 id="import-heading">Select an NFC dump</h2>
+      <div class="row">
+        <input id="nfcFile" type="file" accept=".nfc,text/plain" />
+        <button id="createJson" class="primary" type="button" disabled>
+          Create JSON in TeddyCloud
+        </button>
+      </div>
+      <dl id="dumpDetails" hidden>
+        <dt>File</dt>
+        <dd id="fileName"></dd>
+        <dt>rUID</dt>
+        <dd id="ruid"></dd>
+        <dt>Authentication</dt>
+        <dd>Available (not displayed)</dd>
+        <dt>JSON path</dt>
+        <dd id="jsonPath"></dd>
+      </dl>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <script src="./script.js?v=1.0.0"></script>
+  </body>
+</html>
