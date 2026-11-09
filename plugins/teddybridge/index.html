@@ -86,7 +86,7 @@
     const fallback = () => { if (!ok && waiting) { cleanup(); frame.removeAttribute('src'); open(url); } };
     const onMsg = ev => {
       if (ev.source === frame.contentWindow && ev.origin === origin && ev.data && ev.data.teddybridge === 'ready') {
-        ok = true; cleanup(); frame.hidden = false; $('open').hidden = true;
+        ok = true; cleanup(); frame.hidden = false; $('open').hidden = true; fit();
       }
     };
     const onLoad = () => setTimeout(fallback, GRACE);
@@ -99,6 +99,17 @@
     frame.addEventListener('load', onLoad);
     waiting = setTimeout(fallback, MAXWAIT);
     frame.src = url;
+  }
+  // TeddyCloud sizes the plugin frame to its content: claim the visible height below the frame's top edge.
+  function fit() {
+    try {
+      const fe = window.frameElement;
+      if (!fe) return;
+      const top = fe.getBoundingClientRect().top + parent.scrollY;
+      document.body.style.minHeight = '0';
+      document.body.style.height = Math.max(400, parent.innerHeight - top - 24) + 'px';
+      if (!fit.on) { fit.on = true; parent.addEventListener('resize', fit); }
+    } catch (e) { /* not same-origin: keep 100vh */ }
   }
   function open(url) {
     $('setup').hidden = true; $('open').hidden = false;
