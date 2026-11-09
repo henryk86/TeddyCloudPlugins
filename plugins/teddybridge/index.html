@@ -1,9 +1,11 @@
 <!doctype html>
 <!-- teddybridge as an entry in TeddyCloud's Plugins tab.
      Copy the folder "teddybridge" to <teddycloud-data>/www/plugins/.
-     The address of teddybridge is asked for on first use and stored in the browser.
+     The address of teddybridge is asked for on first use and stored in the browser
+     (change it later by opening this page with ?setup).
      Optionally preset it: replace TEDDYBRIDGE_URL (one occurrence, in the script) with the address,
-     e.g. https://teddybridge.example.lan/ - see README.md. -->
+     e.g. https://teddybridge.example.lan/ - see README.md.
+     teddybridge is shown inside TeddyCloud if it allows it (FRAME_ANCESTORS), otherwise the window is redirected. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -20,9 +22,11 @@
   small,.hint{color:var(--muted)}
   .err{color:#d33}
   [hidden]{display:none!important}
+  #frame{position:fixed;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
 </style>
 </head>
 <body>
+<iframe id="frame" title="teddybridge" hidden></iframe>
 <main>
   <section id="open" hidden>
     <p id="msg"></p>
@@ -43,6 +47,8 @@
   const PRESET = 'TEDDYBRIDGE_URL';
   const KEY = 'teddybridge.url';
   const DELAY = 1500; // ms before redirecting, so "change address" can still be clicked
+  const GRACE = 800;  // ms after the frame loaded to wait for teddybridge's "ready" message
+  const MAXWAIT = 10000; // ms until giving up on the frame (address unreachable)
 
   const de = /^de\b/i.test(navigator.language || '');
   const L = de ? {
@@ -68,17 +74,44 @@
   function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
   function store(u) { try { localStorage.setItem(KEY, u); } catch (e) { /* private mode: use once */ } }
 
-  let timer = null;
+  let timer = null, waiting = null, stopEmbed = null;
+  // Try to show teddybridge inside TeddyCloud. teddybridge reports "ready" via postMessage when it may be
+  // framed (FRAME_ANCESTORS); a blocked frame loads an error page without that message -> redirect instead.
+  function embed(url) {
+    const frame = $('frame'), origin = new URL(url).origin;
+    let ok = false;
+    $('setup').hidden = true; $('open').hidden = false;
+    $('msg').textContent = L.opening;
+    $('go').href = url; $('tab').href = url;
+    const fallback = () => { if (!ok && waiting) { cleanup(); frame.removeAttribute('src'); open(url); } };
+    const onMsg = ev => {
+      if (ev.source === frame.contentWindow && ev.origin === origin && ev.data && ev.data.teddybridge === 'ready') {
+        ok = true; cleanup(); frame.hidden = false; $('open').hidden = true;
+      }
+    };
+    const onLoad = () => setTimeout(fallback, GRACE);
+    function cleanup() {
+      clearTimeout(waiting); waiting = null;
+      window.removeEventListener('message', onMsg); frame.removeEventListener('load', onLoad);
+    }
+    stopEmbed = cleanup;
+    window.addEventListener('message', onMsg);
+    frame.addEventListener('load', onLoad);
+    waiting = setTimeout(fallback, MAXWAIT);
+    frame.src = url;
+  }
   function open(url) {
     $('setup').hidden = true; $('open').hidden = false;
     $('msg').textContent = L.opening;
     $('go').href = url; $('tab').href = url;
-    // teddybridge refuses to be framed (security), so the whole window is redirected.
+    // Framing not allowed (FRAME_ANCESTORS not set in teddybridge): redirect the whole window instead.
     // Some browsers only allow that after a click - then the button stays.
     timer = setTimeout(() => { try { (window.top || window).location.href = url; } catch (e) { /* use the button */ } }, DELAY);
   }
   function setup(current) {
     clearTimeout(timer);
+    if (stopEmbed) stopEmbed();
+    $('frame').hidden = true; $('frame').removeAttribute('src');
     $('open').hidden = true; $('setup').hidden = false;
     $('url').value = current || '';
     $('url').focus();
@@ -89,11 +122,11 @@
     ev.preventDefault();
     const u = valid($('url').value.trim());
     $('err').hidden = !!u; $('err').textContent = L.bad;
-    if (u) { store(u); open(u); }
+    if (u) { store(u); embed(u); }
   };
 
   const url = valid(stored()) || valid(PRESET);
-  url ? open(url) : setup('');
+  (url && !/[?&]setup\b/.test(location.search)) ? embed(url) : setup(url || '');
 </script>
 </body>
 </html>
