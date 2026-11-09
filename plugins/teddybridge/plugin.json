@@ -1,0 +1,9 @@
+{
+  "pluginName": "teddybridge",
+  "description": "Opens teddybridge, a web UI that transfers audiobooks and music from Audiobookshelf, Navidrome or NAS folders to the TeddyCloud library as TAF files. Requires a running teddybridge instance.",
+  "author": "urza-lab",
+  "version": "1.0.0",
+  "pluginHomepage": "https://github.com/urza-lab/teddybridge",
+  "teddyCloudSection": "home",
+  "icon": "CloudUploadOutlined"
+}

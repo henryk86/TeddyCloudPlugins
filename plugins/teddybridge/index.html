@@ -1,0 +1,99 @@
+<!doctype html>
+<!-- teddybridge as an entry in TeddyCloud's Plugins tab.
+     Copy the folder "teddybridge" to <teddycloud-data>/www/plugins/.
+     The address of teddybridge is asked for on first use and stored in the browser.
+     Optionally preset it: replace TEDDYBRIDGE_URL (one occurrence, in the script) with the address,
+     e.g. https://teddybridge.example.lan/ - see README.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>teddybridge</title>
+<style>
+  :root{color-scheme:light dark;--bg:#f6f6f4;--fg:#222;--muted:#666;--acc:#2f6fdf;--line:#ccc}
+  @media (prefers-color-scheme:dark){:root{--bg:#1b1c1e;--fg:#eee;--muted:#aaa;--acc:#6b9bff;--line:#444}}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif;padding:16px;box-sizing:border-box}
+  main{max-width:32em;width:100%;text-align:center}
+  .btn{display:inline-block;background:var(--acc);color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;border:0;font:inherit;cursor:pointer}
+  .link{background:none;border:0;color:var(--acc);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+  input{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font:inherit;margin:8px 0}
+  small,.hint{color:var(--muted)}
+  .err{color:#d33}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <section id="open" hidden>
+    <p id="msg"></p>
+    <p><a class="btn" id="go" target="_top"></a></p>
+    <p><small><span id="fallback"></span> <a id="tab" target="_blank" rel="noopener"></a></small></p>
+    <p><button class="link" id="change"></button></p>
+  </section>
+  <form id="setup" hidden>
+    <p><strong id="setupTitle"></strong></p>
+    <p class="hint" id="setupHint"></p>
+    <input id="url" type="url" required placeholder="https://teddybridge.example.lan/" autocomplete="url">
+    <p class="err" id="err" hidden></p>
+    <p><button class="btn" id="save" type="submit"></button></p>
+  </form>
+</main>
+<script>
+  // Preset address (optional). Leave as is to ask on first use.
+  const PRESET = 'TEDDYBRIDGE_URL';
+  const KEY = 'teddybridge.url';
+  const DELAY = 1500; // ms before redirecting, so "change address" can still be clicked
+
+  const de = /^de\b/i.test(navigator.language || '');
+  const L = de ? {
+    opening: 'teddybridge öffnet sich …', open: 'teddybridge öffnen', fallback: 'Falls nichts passiert:',
+    tab: 'in neuem Tab öffnen', change: 'Adresse ändern', setupTitle: 'Adresse von teddybridge',
+    setupHint: 'Unter welcher Adresse erreicht dieser Browser teddybridge? Sie wird nur in diesem Browser gespeichert.',
+    save: 'Speichern und öffnen', bad: 'Bitte eine Adresse mit http:// oder https:// eingeben.'
+  } : {
+    opening: 'Opening teddybridge …', open: 'Open teddybridge', fallback: 'If nothing happens:',
+    tab: 'open in a new tab', change: 'Change address', setupTitle: 'Address of teddybridge',
+    setupHint: 'At which address does this browser reach teddybridge? It is stored in this browser only.',
+    save: 'Save and open', bad: 'Please enter an address starting with http:// or https://.'
+  };
+  document.documentElement.lang = de ? 'de' : 'en';
+  const $ = id => document.getElementById(id);
+  for (const [id, key] of [['go','open'],['fallback','fallback'],['tab','tab'],['change','change'],
+                           ['setupTitle','setupTitle'],['setupHint','setupHint'],['save','save']]) $(id).textContent = L[key];
+
+  function valid(u) {
+    try { const x = new URL(u); return (x.protocol === 'http:' || x.protocol === 'https:') ? x.href : null; }
+    catch (e) { return null; }
+  }
+  function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function store(u) { try { localStorage.setItem(KEY, u); } catch (e) { /* private mode: use once */ } }
+
+  let timer = null;
+  function open(url) {
+    $('setup').hidden = true; $('open').hidden = false;
+    $('msg').textContent = L.opening;
+    $('go').href = url; $('tab').href = url;
+    // teddybridge refuses to be framed (security), so the whole window is redirected.
+    // Some browsers only allow that after a click - then the button stays.
+    timer = setTimeout(() => { try { (window.top || window).location.href = url; } catch (e) { /* use the button */ } }, DELAY);
+  }
+  function setup(current) {
+    clearTimeout(timer);
+    $('open').hidden = true; $('setup').hidden = false;
+    $('url').value = current || '';
+    $('url').focus();
+  }
+
+  $('change').onclick = () => setup($('go').href);
+  $('setup').onsubmit = ev => {
+    ev.preventDefault();
+    const u = valid($('url').value.trim());
+    $('err').hidden = !!u; $('err').textContent = L.bad;
+    if (u) { store(u); open(u); }
+  };
+
+  const url = valid(stored()) || valid(PRESET);
+  url ? open(url) : setup('');
+</script>
+</body>
+</html>
