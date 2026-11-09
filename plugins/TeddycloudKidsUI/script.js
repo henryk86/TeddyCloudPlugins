@@ -4,7 +4,13 @@
   "use strict";
 
   const PLUGIN_NAME = "Tonie Auswahl";
-  const PLUGIN_VERSION = "0.1.0";
+  const PLUGIN_VERSION = "0.3.0";
+
+  // Items-per-page default coupled to list icon size: large icons fit fewer per row.
+  const ITEMS_PER_PAGE_OPTIONS = [9, 18, 27, 36];
+  function itemsPerPageForListSize(size) {
+    return size === "L" ? 18 : 27;
+  }
 
   // ============================================
   // Internationalization (i18n)
@@ -25,19 +31,19 @@
       tag_detected: "Tonie erkannt!",
       tag_current: "Aktuell:",
       tag_no_audio: "Noch keine Musik zugewiesen",
-      tag_choose_other: "Musik wählen",
+      tag_choose_other: "Geschichte wählen",
       tag_switch: "Anderen Tonie wählen",
       tag_back: "Andere Box wählen",
       tag_timeout: "Kein Tonie gefunden. Nochmal versuchen?",
 
       // Audio Selection
-      audio_title: "Was soll der Tonie spielen?",
+      audio_title: "Welche Geschichte möchtest du auf dem Tonie?",
       audio_back: "Zurück",
       audio_page: "Seite {current} / {total}",
       audio_loading: "Lade Musik...",
 
       // Confirmation
-      confirm_question: "Soll das dein Tonie abspielen?",
+      confirm_question: "Diese Geschichte abspielen?",
       confirm_yes: "Ja",
       confirm_no: "Nein",
 
@@ -55,7 +61,21 @@
 
       // Fullscreen
       fullscreen_enter: "Vollbild",
-      fullscreen_exit: "Vollbild beenden"
+      fullscreen_exit: "Vollbild beenden",
+
+      // Settings dialog
+      settings_open: "Einstellungen",
+      settings_title: "Einstellungen",
+      settings_items_per_page: "Einträge pro Seite",
+      settings_list_icon: "Symbolgröße (Liste)",
+      settings_detail_icon: "Symbolgröße (Detail)",
+      settings_language: "Sprache",
+      settings_lang_auto: "Automatisch",
+      settings_size_s: "Klein",
+      settings_size_m: "Mittel",
+      settings_size_l: "Groß",
+      settings_save: "Speichern",
+      settings_cancel: "Abbrechen"
     },
     en: {
       // Splash Screen
@@ -72,19 +92,19 @@
       tag_detected: "Tonie detected!",
       tag_current: "Currently:",
       tag_no_audio: "No audio assigned yet",
-      tag_choose_other: "Choose audio",
+      tag_choose_other: "Choose story",
       tag_switch: "Choose different Tonie",
       tag_back: "Choose another box",
       tag_timeout: "No Tonie found. Try again?",
 
       // Audio Selection
-      audio_title: "What should the Tonie play?",
+      audio_title: "Which story would you like on the Tonie?",
       audio_back: "Back",
       audio_page: "Page {current} / {total}",
       audio_loading: "Loading audio...",
 
       // Confirmation
-      confirm_question: "Should your Tonie play this?",
+      confirm_question: "Play this story?",
       confirm_yes: "Yes",
       confirm_no: "No",
 
@@ -102,12 +122,262 @@
 
       // Fullscreen
       fullscreen_enter: "Fullscreen",
-      fullscreen_exit: "Exit Fullscreen"
+      fullscreen_exit: "Exit Fullscreen",
+
+      // Settings dialog
+      settings_open: "Settings",
+      settings_title: "Settings",
+      settings_items_per_page: "Items per page",
+      settings_list_icon: "Icon size (list)",
+      settings_detail_icon: "Icon size (detail)",
+      settings_language: "Language",
+      settings_lang_auto: "Automatic",
+      settings_size_s: "Small",
+      settings_size_m: "Medium",
+      settings_size_l: "Large",
+      settings_save: "Save",
+      settings_cancel: "Cancel"
     }
   };
 
-  // Detect language from URL param (?lang=en), browser, or default to German
+  // ============================================
+  // Settings (persistence with TC API + localStorage fallback)
+  // ============================================
+  const Settings = {
+    defaults: {
+      itemsPerPage: 27,
+      listIconSize: "M",
+      detailIconSize: "M",
+      lang: "auto"
+    },
+    KEYS: {
+      itemsPerPage: "plugin.kidsui.itemsPerPage",
+      listIconSize: "plugin.kidsui.listIconSize",
+      detailIconSize: "plugin.kidsui.detailIconSize",
+      lang: "plugin.kidsui.lang"
+    },
+    PROBE_KEY: "plugin.kidsui.probe",
+    LOCAL_PREFIX: "kidsui.",
+    current: null,
+    backend: "local",
+
+    async _probeTC() {
+      try {
+        const body = new URLSearchParams({ value: "1" });
+        const setRes = await fetch(`/api/settings/set/${this.PROBE_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString()
+        });
+        if (!setRes.ok) return false;
+        const getRes = await fetch(
+          `/api/settings/get/${this.PROBE_KEY}?_t=` + Date.now()
+        );
+        if (!getRes.ok) return false;
+        const val = (await getRes.text()).replace(/"/g, "").trim();
+        return val === "1";
+      } catch (_) {
+        return false;
+      }
+    },
+
+    async _readTC(key) {
+      try {
+        const res = await fetch(`/api/settings/get/${key}?_t=` + Date.now());
+        if (!res.ok) return null;
+        const raw = (await res.text()).replace(/"/g, "").trim();
+        return raw.length ? raw : null;
+      } catch (_) {
+        return null;
+      }
+    },
+
+    async _writeTC(key, value) {
+      try {
+        const body = new URLSearchParams({ value: String(value) });
+        const res = await fetch(`/api/settings/set/${key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString()
+        });
+        return res.ok;
+      } catch (_) {
+        return false;
+      }
+    },
+
+    _readLocal(key) {
+      try {
+        const v = localStorage.getItem(this.LOCAL_PREFIX + key);
+        return v == null ? null : v;
+      } catch (_) {
+        return null;
+      }
+    },
+
+    _writeLocal(key, value) {
+      try {
+        localStorage.setItem(this.LOCAL_PREFIX + key, String(value));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
+
+    _coerce(name, raw) {
+      if (raw == null) return this.defaults[name];
+      if (name === "itemsPerPage") {
+        const n = parseInt(raw, 10);
+        return ITEMS_PER_PAGE_OPTIONS.includes(n) ? n : this.defaults[name];
+      }
+      if (name === "listIconSize" || name === "detailIconSize") {
+        return ["S", "M", "L"].includes(raw) ? raw : this.defaults[name];
+      }
+      if (name === "lang") {
+        return ["auto", "de", "en"].includes(raw) ? raw : this.defaults[name];
+      }
+      return this.defaults[name];
+    },
+
+    async load() {
+      // TC settings API integration disabled pending clarification with TeddyCloud devs.
+      // See docs/design/settings-persistence-tc-api.md for the deferred integration plan.
+      this.current = { ...this.defaults };
+      for (const name of Object.keys(this.defaults)) {
+        const cached = this._readLocal(name);
+        if (cached != null) this.current[name] = this._coerce(name, cached);
+      }
+      this.backend = "local";
+      return this.current;
+    },
+
+    async save(partial) {
+      Object.assign(this.current, partial);
+      for (const [name, value] of Object.entries(partial)) {
+        this._writeLocal(name, value);
+        if (this.backend === "tc") {
+          await this._writeTC(this.KEYS[name], value);
+        }
+      }
+      return this.current;
+    },
+
+    get(name) {
+      return this.current ? this.current[name] : this.defaults[name];
+    }
+  };
+
+  // ============================================
+  // Settings Dialog UI controller
+  // ============================================
+  const SettingsDialog = {
+    modal: null,
+    draft: null,
+
+    init() {
+      this.modal = document.getElementById("settings-modal");
+      // Segmented buttons
+      this.modal.querySelectorAll(".settings-segmented").forEach((group) => {
+        const name = group.getAttribute("data-setting");
+        group.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const raw = btn.getAttribute("data-value");
+            const value = name === "itemsPerPage" ? parseInt(raw, 10) : raw;
+            this.draft[name] = value;
+            this._renderActive(group, raw);
+            if (name === "listIconSize") {
+              const coupled = itemsPerPageForListSize(value);
+              this.draft.itemsPerPage = coupled;
+              const ippGroup = this.modal.querySelector(
+                '.settings-segmented[data-setting="itemsPerPage"]'
+              );
+              if (ippGroup) this._renderActive(ippGroup, coupled);
+            }
+          });
+        });
+      });
+      // Language select
+      const langSel = this.modal.querySelector('select[data-setting="lang"]');
+      langSel.addEventListener("change", () => {
+        this.draft.lang = langSel.value;
+      });
+      // Cancel
+      document
+        .getElementById("btn-settings-cancel")
+        .addEventListener("click", () => this.close());
+      // Backdrop click = cancel
+      this.modal
+        .querySelector(".settings-backdrop")
+        .addEventListener("click", () => this.close());
+      // Save
+      document
+        .getElementById("btn-settings-save")
+        .addEventListener("click", () => this.saveAndClose());
+    },
+
+    _renderActive(group, activeValue) {
+      group.querySelectorAll("button").forEach((b) => {
+        b.classList.toggle(
+          "is-active",
+          b.getAttribute("data-value") === String(activeValue)
+        );
+      });
+    },
+
+    _hydrate() {
+      this.draft = { ...Settings.current };
+      this.modal.querySelectorAll(".settings-segmented").forEach((group) => {
+        const name = group.getAttribute("data-setting");
+        this._renderActive(group, this.draft[name]);
+      });
+      this.modal.querySelector('select[data-setting="lang"]').value =
+        this.draft.lang;
+    },
+
+    open() {
+      this._hydrate();
+      this.modal.classList.remove("hidden");
+    },
+
+    close() {
+      this.modal.classList.add("hidden");
+    },
+
+    async saveAndClose() {
+      const before = { ...Settings.current };
+      const partial = {};
+      for (const k of Object.keys(this.draft)) {
+        if (this.draft[k] !== before[k]) partial[k] = this.draft[k];
+      }
+      if (Object.keys(partial).length === 0) {
+        this.close();
+        return;
+      }
+      await Settings.save(partial);
+      if ("lang" in partial) {
+        currentLang = detectLanguage();
+        applyI18n();
+      }
+      if ("listIconSize" in partial) {
+        document.documentElement.dataset.listSize = partial.listIconSize;
+      }
+      if ("detailIconSize" in partial) {
+        document.documentElement.dataset.detailSize = partial.detailIconSize;
+      }
+      if ("itemsPerPage" in partial) {
+        state.audioPerPage = partial.itemsPerPage;
+        state.audioPage = 0;
+      }
+      this.close();
+    }
+  };
+
+  // Detect language from settings, URL param (?lang=en), browser, or default to German
   function detectLanguage() {
+    const settingsLang = Settings.get("lang");
+    if (settingsLang && settingsLang !== "auto" && i18n[settingsLang]) {
+      return settingsLang;
+    }
     const urlParams = new URLSearchParams(window.location.search);
     const urlLang = urlParams.get("lang");
     if (urlLang && i18n[urlLang]) return urlLang;
@@ -116,7 +386,7 @@
     return i18n[browserLang] ? browserLang : "de";
   }
 
-  let currentLang = detectLanguage();
+  let currentLang = "de";
 
   function t(key, params = {}) {
     let text = (i18n[currentLang] && i18n[currentLang][key]) || key;
@@ -130,6 +400,11 @@
     document.querySelectorAll("[data-i18n]").forEach((el) => {
       const key = el.getAttribute("data-i18n");
       el.textContent = t(key);
+    });
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      el.setAttribute("title", t(key));
+      el.setAttribute("aria-label", t(key));
     });
   }
 
@@ -156,7 +431,7 @@
     filteredAudio: [],
     searchQuery: "",
     audioPage: 0,
-    audioPerPage: 30,
+    audioPerPage: 20,
     error: null
   };
 
@@ -798,6 +1073,12 @@
       });
     }
 
+    // Settings - Open button (splash only)
+    const settingsBtn = document.getElementById("btn-settings");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => SettingsDialog.open());
+    }
+
     // Box Selection - Back button
     document.getElementById("btn-box-back").addEventListener("click", () => {
       navigateTo(SCREENS.SPLASH);
@@ -906,14 +1187,26 @@
   // ============================================
   // Initialization
   // ============================================
-  function init() {
+  async function init() {
     console.log(`${PLUGIN_NAME} v${PLUGIN_VERSION} initializing...`);
+
+    try {
+      await Settings.load();
+    } catch (e) {
+      console.error("Settings load failed, using defaults:", e);
+    }
+
+    currentLang = detectLanguage();
+    state.audioPerPage = Settings.get("itemsPerPage");
+    document.documentElement.dataset.listSize = Settings.get("listIconSize");
+    document.documentElement.dataset.detailSize = Settings.get("detailIconSize");
 
     applyI18n();
     setupEventListeners();
+    SettingsDialog.init();
     navigateTo(SCREENS.SPLASH);
 
-    console.log(`${PLUGIN_NAME} ready`);
+    console.log(`${PLUGIN_NAME} ready (settings backend: ${Settings.backend})`);
   }
 
   if (document.readyState !== "loading") {
