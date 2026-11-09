@@ -9,13 +9,20 @@ The plugin itself is only a launcher: teddybridge runs as its own service (Docke
 ## Usage
 
 On first use the plugin asks for the address at which your browser reaches teddybridge
-(e.g. `http://<host>:8085/`) and stores it in that browser. Afterwards it redirects there;
-"Change address" is shown for 1.5 s before the redirect.
+(e.g. `http://<host>:8085/`) and stores it in that browser. To change it later, open the plugin
+page with `?setup`, or click "Change address" while it opens.
 
 To preset the address for all browsers, replace `TEDDYBRIDGE_URL` in `index.html` with it.
 
-teddybridge cannot be embedded in a frame (security header `frame-ancestors 'none'`), so the plugin
-redirects the whole window. If the browser blocks that, an "Open teddybridge" button stays.
+## Inside TeddyCloud or in its own window
+
+teddybridge is shown inside TeddyCloud if teddybridge allows it: set `FRAME_ANCESTORS` in teddybridge's
+config to TeddyCloud's address as the browser sees it (e.g. `http://192.0.2.10`). Otherwise the plugin
+redirects the whole window to teddybridge.
+
+With teddybridge's login enabled, embedding needs TeddyCloud and teddybridge on the same site (same host
+with different ports, or subdomains of one domain), because the session cookie is `SameSite=Strict`.
+Otherwise teddybridge shows a link to open it in its own window.
 
 The plugin follows the browser language (English or German).
 
