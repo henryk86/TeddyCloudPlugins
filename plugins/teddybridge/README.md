@@ -24,7 +24,11 @@ With teddybridge's login enabled, embedding needs TeddyCloud and teddybridge on 
 with different ports, or subdomains of one domain), because the session cookie is `SameSite=Strict`.
 Otherwise teddybridge shows a link to open it in its own window.
 
-The plugin follows the browser language (English or German).
+## Language and theme
+
+The plugin follows TeddyCloud's language (English or German; otherwise the browser language) and passes it,
+together with TeddyCloud's light/dark theme, on to teddybridge (teddybridge 1.6 or later; older versions
+simply ignore it). Works with TeddyCloud's web UI v1 and the new web UI v2.
 
 ## License
 
