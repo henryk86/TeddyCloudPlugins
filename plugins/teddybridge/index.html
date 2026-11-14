@@ -50,7 +50,19 @@
   const GRACE = 800;  // ms after the frame loaded to wait for teddybridge's "ready" message
   const MAXWAIT = 10000; // ms until giving up on the frame (address unreachable)
 
-  const de = /^de\b/i.test(navigator.language || '');
+  // Language of TeddyCloud, so that teddybridge and these texts match it: web v2 sets <html lang>, web v1 keeps
+  // the choice in localStorage (i18next, with a per-user prefix when TeddyCloud has a login). Fallback: browser.
+  function tcLang() {
+    try {
+      const fe = window.frameElement;
+      if (fe && fe.classList.contains('plugin-frame')) return parent.document.documentElement.lang || null;
+      const keys = Object.keys(localStorage).filter(k => k === 'i18nextLng' || /^user:.*:i18nextLng$/.test(k));
+      const vals = [...new Set(keys.map(k => localStorage.getItem(k)))];
+      return vals.length === 1 ? vals[0] : localStorage.getItem('i18nextLng');
+    } catch (e) { return null; }
+  }
+  const LANG = (/^(de|en)/i.exec(tcLang() || navigator.language || '') || [])[1];
+  const de = (LANG || '').toLowerCase() === 'de';
   const L = de ? {
     opening: 'teddybridge öffnet sich …', open: 'teddybridge öffnen', fallback: 'Falls nichts passiert:',
     tab: 'in neuem Tab öffnen', change: 'Adresse ändern', setupTitle: 'Adresse von teddybridge',
@@ -87,6 +99,8 @@
     const onMsg = ev => {
       if (ev.source === frame.contentWindow && ev.origin === origin && ev.data && ev.data.teddybridge === 'ready') {
         ok = true; cleanup(); frame.hidden = false; $('open').hidden = true; fit();
+        theme = null; syncTheme(frame, origin);
+        if (!syncTheme.on) { syncTheme.on = setInterval(() => syncTheme(frame, origin), 1500); }
       }
     };
     const onLoad = () => setTimeout(fallback, GRACE);
@@ -98,18 +112,58 @@
     window.addEventListener('message', onMsg);
     frame.addEventListener('load', onLoad);
     waiting = setTimeout(fallback, MAXWAIT);
-    frame.src = url;
+    const t = tcTheme();
+    const u = new URL(url);
+    if (LANG) u.searchParams.set('lang', LANG.toLowerCase());
+    if (t) u.hash = 'theme=' + t;
+    frame.src = u.href;
   }
-  // TeddyCloud sizes the plugin frame to its content: claim the visible height below the frame's top edge.
+  // Fill the visible height below the frame's top edge. TeddyCloud web v1 sizes the plugin frame to its content
+  // (so the body gets the height); web v2 (class "plugin-frame") gives the frame a fixed height and shows a fixed
+  // tab bar at the bottom on phones (so the frame itself gets the height, minus the tab bar).
   function fit() {
     try {
       const fe = window.frameElement;
       if (!fe) return;
-      const top = fe.getBoundingClientRect().top + parent.scrollY;
+      const pw = parent, vh = pw.visualViewport ? pw.visualViewport.height : pw.innerHeight;
+      const top = fe.getBoundingClientRect().top + pw.scrollY;
+      const v2 = fe.classList.contains('plugin-frame');
+      let bottom = 24;
+      if (v2) {
+        bottom = 8;
+        const tb = pw.document.querySelector('.tabbar');
+        if (tb && pw.getComputedStyle(tb).display !== 'none') bottom += tb.getBoundingClientRect().height;
+      }
+      const h = Math.max(360, Math.floor(vh - top - bottom));
       document.body.style.minHeight = '0';
-      document.body.style.height = Math.max(400, parent.innerHeight - top - 24) + 'px';
-      if (!fit.on) { fit.on = true; parent.addEventListener('resize', fit); }
+      document.body.style.height = h + 'px';
+      if (v2) fe.style.height = h + 'px';
+      if (!fit.on) {
+        fit.on = true;
+        pw.addEventListener('resize', fit);
+        if (pw.visualViewport) pw.visualViewport.addEventListener('resize', fit);
+      }
     } catch (e) { /* not same-origin: keep 100vh */ }
+  }
+  // Follow TeddyCloud's light/dark theme: the first non-transparent background around the plugin frame decides.
+  function tcTheme() {
+    try {
+      for (let e = window.frameElement; e; e = e.parentElement) {
+        const m = (parent.getComputedStyle(e).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+        if (m.length < 3 || m[3] === 0) continue;
+        return 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2] < 128 ? 'dark' : 'light';
+      }
+    } catch (e) { /* not same-origin */ }
+    return null;
+  }
+  let theme = null;
+  function syncTheme(frame, origin) {
+    const t = tcTheme();
+    if (t && t !== theme) {
+      theme = t;
+      document.documentElement.style.colorScheme = t;
+      try { frame.contentWindow.postMessage({teddybridge: 'theme', theme: t}, origin); } catch (e) { /* egal */ }
+    }
   }
   function open(url) {
     $('setup').hidden = true; $('open').hidden = false;
